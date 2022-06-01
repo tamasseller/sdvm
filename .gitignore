@@ -3,3 +3,4 @@ sdvm-test
 .project
 .settings
 .o
+coverage/

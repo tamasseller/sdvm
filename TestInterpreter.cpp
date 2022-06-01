@@ -32,9 +32,9 @@ TEST(Interpreter, AddImm)
 			2, 0, 0,
 			{
 				{
-					{Program::Operation::Immediate, 1},
-					{Program::Operation::Immediate, 2},
-					{Program::Operation::Add}
+					Program::Instruction::imm(1),
+					Program::Instruction::imm(2),
+					Program::Instruction::add(),
 				}
 			}
 		}
@@ -48,9 +48,9 @@ TEST(Interpreter, SubImmFromArg)
 			2, 0, 1,
 			{
 				{
-					{Program::Operation::Load, 0},
-					{Program::Operation::Immediate, 2},
-					{Program::Operation::Sub}
+					Program::Instruction::load(0),
+					Program::Instruction::imm(2),
+					Program::Instruction::sub()
 				}
 			}
 		}
@@ -64,9 +64,9 @@ TEST(Interpreter, AddArgs)
 			2, 0, 2,
 			{
 				{
-					{Program::Operation::Load, 0},
-					{Program::Operation::Load, 1},
-					{Program::Operation::Add}
+					Program::Instruction::load(0),
+					Program::Instruction::load(1),
+					Program::Instruction::add()
 				}
 			}
 		}
@@ -80,9 +80,9 @@ TEST(Interpreter, ImmStoreLoad)
 			1, 1, 0,
 			{
 				{
-					{Program::Operation::Immediate, 123},
-					{Program::Operation::Store, 0},
-					{Program::Operation::Load, 0}
+					Program::Instruction::imm(123),
+					Program::Instruction::store(0),
+					Program::Instruction::load(0)
 				}
 			}
 		}
@@ -96,9 +96,9 @@ TEST(Interpreter, Square)
 			2, 0, 1,
 			{
 				{
-					{Program::Operation::Load, 0},
-					{Program::Operation::Duplicate},
-					{Program::Operation::Mul, 0}
+					Program::Instruction::load(0),
+					Program::Instruction::dup(),
+					Program::Instruction::mul()
 				}
 			}
 		}
@@ -112,12 +112,12 @@ TEST(Interpreter, DivMod)
 			3, 0, 2,
 			{
 				{
-					{Program::Operation::Load, 0},
-					{Program::Operation::Load, 1},
-					{Program::Operation::Div, 0},
-					{Program::Operation::Load, 0},
-					{Program::Operation::Load, 1},
-					{Program::Operation::Mod, 0}
+					Program::Instruction::load(0),
+					Program::Instruction::load(1),
+					Program::Instruction::div(),
+					Program::Instruction::load(0),
+					Program::Instruction::load(1),
+					Program::Instruction::mod()
 				}
 			}
 		}
@@ -131,15 +131,15 @@ TEST(Interpreter, AndOrXor)
 			4, 0, 2,
 			{
 				{
-					{Program::Operation::Load, 0},
-					{Program::Operation::Load, 1},
-					{Program::Operation::And, 0},
-					{Program::Operation::Load, 0},
-					{Program::Operation::Load, 1},
-					{Program::Operation::Or, 0},
-					{Program::Operation::Load, 0},
-					{Program::Operation::Load, 1},
-					{Program::Operation::Xor, 0}
+					Program::Instruction::load(0),
+					Program::Instruction::load(1),
+					Program::Instruction::aAnd(),
+					Program::Instruction::load(0),
+					Program::Instruction::load(1),
+					Program::Instruction::aOr(),
+					Program::Instruction::load(0),
+					Program::Instruction::load(1),
+					Program::Instruction::aXor()
 				}
 			}
 		}
@@ -153,32 +153,73 @@ TEST(Interpreter, DropLastBits)
 			3, 0, 2,
 			{
 				{
-					{Program::Operation::Load, 0},
-					{Program::Operation::Load, 1},
-					{Program::Operation::Rshift, 0},
-					{Program::Operation::Load, 1},
-					{Program::Operation::Lshift, 0},
+					Program::Instruction::load(0),
+					Program::Instruction::load(1),
+					Program::Instruction::rsh(),
+					Program::Instruction::load(1),
+					Program::Instruction::lsh(),
 				}
 			}
 		}
 	}});
 }
 
-TEST(Interpreter, Skip)
+TEST(Interpreter, Exp)
 {
-	doRunTest({3}, {3}, {{
+	doRunTest({3, 3}, {27}, {{
+		{
+			3, 0, 2,
+			{
+				{
+					Program::Instruction::imm(1),
+				},
+				{
+					Program::Instruction::load(1),
+					Program::Instruction::imm(0),
+					Program::Instruction::jle(2),
+
+					Program::Instruction::load(1),
+					Program::Instruction::imm(1),
+					Program::Instruction::sub(),
+					Program::Instruction::store(1),
+
+					Program::Instruction::load(0),
+					Program::Instruction::mul(),
+					Program::Instruction::jmp(1)
+				},
+				{}
+			}
+		}
+	}});
+}
+
+TEST(Interpreter, Factorial)
+{
+	doRunTest({5}, {120}, {{
 		{
 			3, 0, 1,
 			{
 				{
-					{Program::Operation::Load, 0},
-					{Program::Operation::Store, 1},
-					{Program::Operation::Rshift, 0},
-					{Program::Operation::Load, 1},
-					{Program::Operation::Lshift, 0},
-				}
+					Program::Instruction::load(0),
+					Program::Instruction::imm(1),
+					Program::Instruction::jle(1),
+
+					Program::Instruction::load(0),
+					Program::Instruction::dup(),
+					Program::Instruction::imm(1),
+					Program::Instruction::sub(),
+
+					Program::Instruction::imm(0),
+					Program::Instruction::call(),
+					Program::Instruction::mul(),
+
+					Program::Instruction::jmp(2),
+				},
+				{
+					Program::Instruction::imm(1),
+				},
+				{}
 			}
 		}
 	}});
 }
-
