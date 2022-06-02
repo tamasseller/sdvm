@@ -26,7 +26,7 @@ struct Program
 
 	enum class LoadStoreOperation
 	{
-		LoadLocal, StoreLocal
+		LoadArgument, StoreArgument, LoadLocal, StoreLocal
 	};
 
 	enum class BranchCondition
@@ -96,8 +96,10 @@ struct Program
 		static inline constexpr auto lsh() { return binary<BinaryOperation::Lsh>(); }
 		static inline constexpr auto rsh() { return binary<BinaryOperation::Rsh>(); }
 
-		static inline constexpr auto load(uint32_t varIdx) { return loadStore<LoadStoreOperation::LoadLocal>(varIdx); }
-		static inline constexpr auto store(uint32_t varIdx) { return loadStore<LoadStoreOperation::StoreLocal>(varIdx); }
+		static inline constexpr auto loadLocal(uint32_t varIdx) { return loadStore<LoadStoreOperation::LoadLocal>(varIdx); }
+		static inline constexpr auto loadArgument(uint32_t varIdx) { return loadStore<LoadStoreOperation::LoadArgument>(varIdx); }
+		static inline constexpr auto storeLocal(uint32_t varIdx) { return loadStore<LoadStoreOperation::StoreLocal>(varIdx); }
+		static inline constexpr auto storeArgument(uint32_t varIdx) { return loadStore<LoadStoreOperation::StoreArgument>(varIdx); }
 
 		static inline constexpr auto jeq(uint32_t target) { return conditional<BranchCondition::IfEqual>(target); }
 		static inline constexpr auto jne(uint32_t target) { return conditional<BranchCondition::IfNotEqual>(target); }
@@ -134,13 +136,20 @@ struct Program
 	using Block = std::vector<Instruction>;
 	using Body = std::vector<Block>;
 
-	struct Function
+	struct FrameInfo
 	{
 		uint32_t maxStack, nLocals, nArgs;
+	};
+
+	struct Function
+	{
+		FrameInfo info;
 		Body body;
 	};
 
 	std::vector<Function> functions;
+
+	std::vector<uint32_t> interpret(const std::vector<uint32_t> &args, size_t stackSize = 4096) const;
 };
 
 #endif /* MODEL_PROGRAM_H_ */
