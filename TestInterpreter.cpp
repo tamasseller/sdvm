@@ -1,6 +1,6 @@
 #include "1test/Test.h"
 
-#include "vm/Program.h"
+#include "vm/Interpreter.h"
 
 #include <sstream>
 
@@ -8,7 +8,16 @@ TEST_GROUP(Interpreter)
 {
 	static void doRunTest(const std::vector<uint32_t>& args, const std::vector<uint32_t>& exp, const Program &p)
 	{
-		const auto result = p.interpret(args);
+		std::vector<uint32_t> result;
+
+		try
+		{
+			result = interpret(p, args);
+		}
+		catch(const std::exception& e)
+		{
+			FAIL(e.what());
+		}
 
 		CHECK(result.size() == exp.size());
 
@@ -35,6 +44,7 @@ TEST(Interpreter, AddImm)
 					Program::Instruction::imm(1),
 					Program::Instruction::imm(2),
 					Program::Instruction::add(),
+					Program::Instruction::ret()
 				}
 			}
 		}
@@ -50,7 +60,8 @@ TEST(Interpreter, SubImmFromArg)
 				{
 					Program::Instruction::loadArgument(0),
 					Program::Instruction::imm(2),
-					Program::Instruction::sub()
+					Program::Instruction::sub(),
+					Program::Instruction::ret()
 				}
 			}
 		}
@@ -66,7 +77,8 @@ TEST(Interpreter, AddArgs)
 				{
 					Program::Instruction::loadArgument(0),
 					Program::Instruction::loadArgument(1),
-					Program::Instruction::add()
+					Program::Instruction::add(),
+					Program::Instruction::ret()
 				}
 			}
 		}
@@ -82,7 +94,8 @@ TEST(Interpreter, ImmStoreLoad)
 				{
 					Program::Instruction::imm(123),
 					Program::Instruction::storeLocal(0),
-					Program::Instruction::loadLocal(0)
+					Program::Instruction::loadLocal(0),
+					Program::Instruction::ret()
 				}
 			}
 		}
@@ -98,7 +111,8 @@ TEST(Interpreter, Square)
 				{
 					Program::Instruction::loadArgument(0),
 					Program::Instruction::dup(),
-					Program::Instruction::mul()
+					Program::Instruction::mul(),
+					Program::Instruction::ret()
 				}
 			}
 		}
@@ -117,8 +131,10 @@ TEST(Interpreter, DivMod)
 					Program::Instruction::div(),
 					Program::Instruction::loadArgument(0),
 					Program::Instruction::loadArgument(1),
-					Program::Instruction::mod()
+					Program::Instruction::mod(),
+					Program::Instruction::ret()
 				}
+
 			}
 		}
 	}});
@@ -139,7 +155,8 @@ TEST(Interpreter, AndOrXor)
 					Program::Instruction::aOr(),
 					Program::Instruction::loadArgument(0),
 					Program::Instruction::loadArgument(1),
-					Program::Instruction::aXor()
+					Program::Instruction::aXor(),
+					Program::Instruction::ret()
 				}
 			}
 		}
@@ -158,7 +175,9 @@ TEST(Interpreter, DropLastBits)
 					Program::Instruction::rsh(),
 					Program::Instruction::loadArgument(1),
 					Program::Instruction::lsh(),
+					Program::Instruction::ret()
 				}
+
 			}
 		}
 	}});
@@ -187,7 +206,9 @@ TEST(Interpreter, ExpNoLocal)
 					Program::Instruction::mul(),
 					Program::Instruction::jmp(1)
 				},
-				{}
+				{
+					Program::Instruction::ret()
+				}
 			}
 		}
 	}});
@@ -224,7 +245,8 @@ TEST(Interpreter, ExpLocalLoop)
 					Program::Instruction::jmp(1)
 				},
 				{
-					Program::Instruction::loadLocal(0) 		// return ret;
+					Program::Instruction::loadLocal(0), 		// return ret;
+					Program::Instruction::ret()
 				}
 			}
 		}
@@ -251,12 +273,14 @@ TEST(Interpreter, Factorial)
 					Program::Instruction::call(),
 					Program::Instruction::mul(),
 
-					Program::Instruction::jmp(2),
+					Program::Instruction::jmp(2)
 				},
 				{
-					Program::Instruction::imm(1),
+					Program::Instruction::imm(1)
 				},
-				{}
+				{
+					Program::Instruction::ret()
+				}
 			}
 		}
 	}});

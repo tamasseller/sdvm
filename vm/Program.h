@@ -12,8 +12,9 @@ struct Program
 		Binary,
 		LoadStore,
 		Conditional,
-		Call,
 		Jump,
+		Call,
+		Return,
 		Immediate,
 		Duplicate
 	};
@@ -115,11 +116,6 @@ struct Program
 			return ret;
 		}
 
-		static inline constexpr auto call()
-		{
-			return Instruction {OperationGroup::Call};
-		}
-
 		static inline constexpr auto imm(uint32_t v)
 		{
 			Instruction ret{OperationGroup::Immediate};
@@ -127,10 +123,18 @@ struct Program
 			return ret;
 		}
 
-		static inline constexpr auto dup()
-		{
+		static inline constexpr auto dup() {
 			return Instruction{OperationGroup::Duplicate};
 		}
+
+		static inline constexpr auto call() {
+			return Instruction {OperationGroup::Call};
+		}
+
+		static inline constexpr auto ret() {
+			return Instruction {OperationGroup::Return};
+		}
+
 	};
 
 	using Block = std::vector<Instruction>;
@@ -148,9 +152,6 @@ struct Program
 	};
 
 	std::vector<Function> functions;
-
-	std::vector<uint32_t> interpret(const std::vector<uint32_t> &args, size_t stackSize = 4096) const;
 };
 
 #endif /* MODEL_PROGRAM_H_ */
-
