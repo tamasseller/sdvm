@@ -137,21 +137,10 @@ struct Program
 
 	};
 
-	using Block = std::vector<Instruction>;
-	using Body = std::vector<Block>;
-
 	struct FrameInfo
 	{
 		uint32_t maxStack, nLocals, nArgs;
 	};
-
-	struct Function
-	{
-		FrameInfo info;
-		Body body;
-	};
-
-	std::vector<Function> functions;
 };
 
 #endif /* MODEL_PROGRAM_H_ */
