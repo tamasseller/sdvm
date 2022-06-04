@@ -8,6 +8,8 @@ struct State
 	uint32_t *fp, *sp;
 };
 
+static constexpr auto frameHeaderWords = 0; // 4;
+
 static inline uint32_t pop(const Program::FrameInfo& info, State& state)
 {
 	if(state.sp <= state.fp + info.nLocals)
@@ -55,7 +57,7 @@ inline uint32_t loadArg(const Program::FrameInfo& info, State& state, uint32_t i
 		throw std::runtime_error("Argument load out of bounds (" + std::to_string(idx) + " should be below " + std::to_string(info.nArgs) + ")");
 	}
 
-	return state.fp[(int32_t)(idx - info.nArgs)];
+	return state.fp[(int32_t)(-(idx + frameHeaderWords + 1))];
 }
 
 inline void storeArg(const Program::FrameInfo& info, State& state, uint32_t idx, uint32_t v)
@@ -65,7 +67,7 @@ inline void storeArg(const Program::FrameInfo& info, State& state, uint32_t idx,
 		throw std::runtime_error("Argument store out of bounds (" + std::to_string(idx) + " should be below " + std::to_string(info.nArgs) + ")");
 	}
 
-	state.fp[(int32_t)(idx - info.nArgs)] = v;
+	state.fp[(int32_t)(-(idx + frameHeaderWords + 1))] = v;
 }
 
 struct Reader
@@ -290,6 +292,6 @@ std::vector<uint32_t> interpret(const Program& p, const std::vector<uint32_t> &a
 
 	Program::FrameInfo fi;
 	Reader r(p, fi);
-	std::copy(args.begin(), args.end(), stack);
+	std::copy(args.rbegin(), args.rend(), stack);
 	return ::run(r, p.functions[0].info, stack);
 }
