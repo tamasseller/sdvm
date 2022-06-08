@@ -1,10 +1,5 @@
 #include "TestUtils.h"
 
-#include "vm/Interpreter.h"
-#include "tools/Program.h"
-
-#include <sstream>
-
 TEST_GROUP(Interpreter){};
 
 TEST(Interpreter, AddImm)
@@ -113,22 +108,178 @@ TEST(Interpreter, DivMod)
 	}});
 }
 
-TEST(Interpreter, AndOrXor)
+TEST(Interpreter, Arithmetic)
 {
-	doRunTest({3, 6}, {2, 7, 5}, Program{{
+	doRunTest({3, 6}, {9, 3, 18, 2, 3, 2, 7, 5, 48, 0}, Program{{
 		{
-			{4, 0, 2, 3},
+			{11, 0, 2, 10},
 			{
 				{
 					Visa::Instruction::loadArgument(0),
 					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::add(),
+
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::sub(),
+
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::mul(),
+
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::div(),
+
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::mod(),
+
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::loadArgument(1),
 					Visa::Instruction::aAnd(),
+
 					Visa::Instruction::loadArgument(0),
 					Visa::Instruction::loadArgument(1),
 					Visa::Instruction::aOr(),
+
 					Visa::Instruction::loadArgument(0),
 					Visa::Instruction::loadArgument(1),
 					Visa::Instruction::aXor(),
+
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::lsh(),
+
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::rsh(),
+
+					Visa::Instruction::ret()
+
+				}
+			}
+		}
+	}});
+}
+
+TEST(Interpreter, LogicTrue)
+{
+	doRunTest({}, {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, Program{{
+		{
+			{13, 0, 0, 12},
+			{
+				{
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::leq(),
+
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::llt(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::lgt(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::lne(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::lge(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::lge(),
+
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::lle(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::lle(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::lAnd(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::lOr(),
+
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::lOr(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::lOr(),
+
+					Visa::Instruction::ret()
+				}
+			}
+		}
+	}});
+}
+
+TEST(Interpreter, LogicFalse)
+{
+	doRunTest({}, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Program{{
+		{
+			{13, 0, 0, 12},
+			{
+				{
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::leq(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::llt(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::llt(),
+
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::lgt(),
+
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::lgt(),
+
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::lne(),
+
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::lge(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::lle(),
+
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::lAnd(),
+
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::lAnd(),
+
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::lAnd(),
+
+					Visa::Instruction::imm(0),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::lOr(),
+
 					Visa::Instruction::ret()
 				}
 			}

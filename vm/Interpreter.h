@@ -1,11 +1,30 @@
 #ifndef VM_INTERPRETER_H_
 #define VM_INTERPRETER_H_
 
-#include <stdexcept>
 #include <memory>
 #include <vector>
 #include "Visa.h"
 
+#define X_INTERPRETER_ERRORS()																			\
+		X(Underflow, "OpStack underflow")                                                               \
+		X(Overflow, "OpStack overflow")                                                                 \
+		X(LocaLoadOob, "Local load out of bounds (%d should be below %d)")                              \
+		X(LocaStoreOob, "Local store out of bounds (%d should be below %d)")                            \
+		X(ArgumentLoadOob, "Argument load out of bounds (%d should be below %d)")                       \
+		X(ArgumentStoreOob, "Argument store out of bounds (%d should be below %d)")                     \
+		X(UnknownOperation, "Unknown operation")                                                        \
+		X(NotEnoughArguments,"Function called with insufficient number of arguments (%d should be %d)") \
+		X(WrongReturnValues,"Function returns with wrong number of values (%d should be %d)") 			\
+		X(NoReturnAtEnd, "No return at end of function")
+
+enum class InterpreterError
+{
+#define X(sym, desc) sym,
+	X_INTERPRETER_ERRORS()
+#undef X
+};
+
+template<class ErrorHandler>
 class Interpreter
 {
 	static constexpr auto frameHeaderWords = 4;
@@ -18,7 +37,8 @@ class Interpreter
 		{
 			if(sp <= fp + info.nLocals)
 			{
-				throw std::runtime_error("OpStack underflow");
+				ErrorHandler::take(InterpreterError::Underflow);
+				return 0;
 			}
 
 			return *--sp;
@@ -28,17 +48,20 @@ class Interpreter
 		{
 			if(fp + info.nLocals + info.maxStack <= sp)
 			{
-				throw std::runtime_error("OpStack overflow");
+				ErrorHandler::take(InterpreterError::Overflow);
 			}
-
-			*sp++ = v;
+			else
+			{
+				*sp++ = v;
+			}
 		}
 
 		inline uint32_t loadLocal(const Visa::FrameInfo& info, uint32_t idx)
 		{
 			if(info.nLocals <= idx)
 			{
-				throw std::runtime_error("Local load out of bounds (" + std::to_string(idx) + " should be below " + std::to_string(info.nLocals) + ")");
+				ErrorHandler::take(InterpreterError::LocaLoadOob, idx, info.nLocals);
+				return 0;
 			}
 
 			return fp[idx];
@@ -48,17 +71,20 @@ class Interpreter
 		{
 			if(info.nLocals <= idx)
 			{
-				throw std::runtime_error("Local store out of bounds (" + std::to_string(idx) + " should be below " + std::to_string(info.nLocals) + ")");
+				ErrorHandler::take(InterpreterError::LocaStoreOob, idx, info.nLocals);
 			}
-
-			fp[idx] = v;
+			else
+			{
+				fp[idx] = v;
+			}
 		}
 
 		inline uint32_t loadArg(const Visa::FrameInfo& info, uint32_t idx)
 		{
 			if(info.nArgs <= idx)
 			{
-				throw std::runtime_error("Argument load out of bounds (" + std::to_string(idx) + " should be below " + std::to_string(info.nArgs) + ")");
+				ErrorHandler::take(InterpreterError::ArgumentLoadOob, idx, info.nArgs);
+				return 0;
 			}
 
 			return fp[(int32_t)(-(idx + frameHeaderWords + 1))];
@@ -68,10 +94,13 @@ class Interpreter
 		{
 			if(info.nArgs <= idx)
 			{
-				throw std::runtime_error("Argument store out of bounds (" + std::to_string(idx) + " should be below " + std::to_string(info.nArgs) + ")");
+				ErrorHandler::take(InterpreterError::ArgumentStoreOob, idx, info.nArgs);
 			}
+			else
+			{
+				fp[(int32_t)(-(idx + frameHeaderWords + 1))] = v;
 
-			fp[(int32_t)(-(idx + frameHeaderWords + 1))] = v;
+			}
 		}
 	};
 
@@ -121,7 +150,8 @@ public:
 						case Visa::LoadStoreDestination::Argument:
 							v = state.loadArg(fInfo, isn.varIdx);
 							break;
-						default: throw std::runtime_error("Unknown load operation");
+
+						default: ErrorHandler::take(InterpreterError::UnknownOperation);
 					}
 
 					state.push(fInfo, v);
@@ -140,7 +170,8 @@ public:
 						case Visa::LoadStoreDestination::Argument:
 							state.storeArg(fInfo, isn.varIdx, v);
 							break;
-						default: throw std::runtime_error("Unknown store operation");
+
+						default: ErrorHandler::take(InterpreterError::UnknownOperation);
 					}
 					break;
 				}
@@ -171,7 +202,7 @@ public:
 						case Visa::BinaryOperation::Both:       state.push(fInfo, arg1 && arg2); break;
 						case Visa::BinaryOperation::Either:     state.push(fInfo, arg1 || arg2); break;
 
-						default: throw std::runtime_error("Unknown binary operation");
+						default: ErrorHandler::take(InterpreterError::UnknownOperation);
 					}
 					break;
 				}
@@ -193,18 +224,22 @@ public:
 
 					if(const auto nActArgs = state.sp - (state.fp + fInfo.nLocals); nActArgs < nfInfo.nArgs)
 					{
-						throw std::runtime_error("Function called with insufficient number of arguments: " + std::to_string(nActArgs) + " (should be " + std::to_string(nfInfo.nArgs) + ")");
+						ErrorHandler::take(InterpreterError::NotEnoughArguments, nActArgs, nfInfo.nArgs);
+						Visa::FrameInfo _;
+						r.restore(rp, _);
 					}
+					else
+					{
+						fInfo = nfInfo;
 
-					fInfo = nfInfo;
+						*state.sp++ = rp.bIdx;
+						*state.sp++ = rp.fIdx;
+						*state.sp++ = rp.iIdx;
+						*state.sp++ = (uint32_t)(state.fp - stack);
 
-					*state.sp++ = rp.bIdx;
-					*state.sp++ = rp.fIdx;
-					*state.sp++ = rp.iIdx;
-					*state.sp++ = (uint32_t)(state.fp - stack);
-
-					state.fp = state.sp;
-					state.sp += fInfo.nLocals;
+						state.fp = state.sp;
+						state.sp += fInfo.nLocals;
+					}
 
 					break;
 				}
@@ -216,7 +251,7 @@ public:
 
 					if(const auto nActRet = stackEnd - stackStart; nActRet != fInfo.nRet)
 					{
-						throw std::runtime_error("Function called return with wrong number of values: " + std::to_string(nActRet) + " (should be " + std::to_string(fInfo.nRet) + ")");
+						ErrorHandler::take(InterpreterError::WrongReturnValues, nActRet, fInfo.nRet);
 					}
 
 					if(auto oFp = state.fp[-1]; 0 < (int)oFp)
@@ -242,11 +277,13 @@ public:
 					}
 				}
 			default:
-				throw std::runtime_error("Unknown instruction group");
+
+				ErrorHandler::take(InterpreterError::UnknownOperation);
 			}
 		}
 
-		throw std::runtime_error("No return at end of function");
+		ErrorHandler::take(InterpreterError::NoReturnAtEnd);
+		return {};
 	}
 };
 

@@ -2,12 +2,14 @@
 #define TESTUTILS_H_
 
 #include "vm/Interpreter.h"
+#include "tools/Program.h"
+#include "tools/ExceptionalErrorHandler.h"
 
 #include "1test/Test.h"
 
 #include <sstream>
 
-template<class Program>
+template<class Program, class ErrorHandler = ExceptionalErrorHandler>
 static void doRunTest(const std::vector<uint32_t>& args, const std::vector<uint32_t>& exp, const Program &p)
 {
 	std::vector<uint32_t> result;
@@ -15,7 +17,7 @@ static void doRunTest(const std::vector<uint32_t>& args, const std::vector<uint3
 	try
 	{
 		auto r(p);
-		result = Interpreter::interpret(r, args);
+		result = Interpreter<ErrorHandler>::interpret(r, args);
 	}
 	catch(const std::exception& e)
 	{
