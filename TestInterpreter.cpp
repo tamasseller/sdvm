@@ -1,142 +1,23 @@
-#include "1test/Test.h"
+#include "TestUtils.h"
 
 #include "vm/Interpreter.h"
+#include "tools/Program.h"
 
 #include <sstream>
 
-struct ProgramReader
-{
-	using Block = std::vector<Program::Instruction>;
-	using Body = std::vector<Block>;
-
-	struct Function
-	{
-		Program::FrameInfo info;
-		Body body;
-	};
-
-	std::vector<Function> functions;
-	decltype(functions.cbegin()) fIt;
-	decltype(fIt->body.cbegin()) bIt;
-	decltype(bIt->cbegin()) iIt;
-
-	void init(Program::FrameInfo &fInfo)
-	{
-		fIt = functions.cbegin();
-		bIt = fIt->body.cbegin();
-		iIt = bIt->cbegin();
-
-		fInfo = fIt->info;
-	}
-
-	struct RestorePoint
-	{
-		uint32_t fIdx, bIdx, iIdx;
-	};
-
-	RestorePoint openFunction(uint32_t idx, Program::FrameInfo &fInfo)
-	{
-		if(functions.size() <= idx)
-		{
-			throw std::runtime_error("Unknown function called: " + std::to_string(idx) + " (should be below " + std::to_string(functions.size()));
-		}
-
-		RestorePoint ret
-		{
-			(uint32_t)(fIt - functions.cbegin()),
-			(uint32_t)(bIt - fIt->body.cbegin()),
-			(uint32_t)(iIt - bIt->cbegin())
-		};
-
-		fIt = functions.cbegin() + idx;
-		bIt = fIt->body.cbegin();
-		iIt = bIt->cbegin();
-
-		fInfo = fIt->info;
-		return ret;
-	}
-
-	void restore(RestorePoint& rp, Program::FrameInfo& fInfo)
-	{
-		fIt = functions.cbegin() + rp.fIdx;
-		bIt = fIt->body.cbegin() + rp.bIdx;
-		iIt = bIt->cbegin() + rp.iIdx;
-
-		fInfo = fIt->info;
-	}
-
-	void seekBlock(uint32_t idx)
-	{
-		if(fIt->body.size() <= idx)
-		{
-			throw std::runtime_error("Jump to unknown block: " + std::to_string(idx) + " (should be below " + std::to_string(fIt->body.size()));
-		}
-
-		bIt = fIt->body.cbegin() + idx;
-		iIt = bIt->cbegin();
-	}
-
-	bool readNext(Program::Instruction& isn)
-	{
-		while(iIt == bIt->cend())
-		{
-			bIt++;
-
-			if(bIt == fIt->body.cend())
-			{
-				return false;
-			}
-
-			iIt = bIt->cbegin();
-		}
-
-		isn = *iIt++;
-		return true;
-	}
-};
-
-TEST_GROUP(Interpreter)
-{
-	static void doRunTest(const std::vector<uint32_t>& args, const std::vector<uint32_t>& exp, const ProgramReader &p)
-	{
-		std::vector<uint32_t> result;
-
-		try
-		{
-			auto r(p);
-			result = Interpreter::interpret(r, args);
-		}
-		catch(const std::exception& e)
-		{
-			FAIL(e.what());
-		}
-
-		CHECK(result.size() == exp.size());
-
-		for(int i = 0; i < result.size(); i++)
-		{
-			if(result[i] != exp[i])
-			{
-				std::stringstream ss;
-				ss << "Result mismatch at index " << i << ", expected " << exp[i] << " got " << result[i];
-				const auto str = ss.str();
-				FAIL(str.c_str());
-			}
-		}
-	}
-};
+TEST_GROUP(Interpreter){};
 
 TEST(Interpreter, AddImm)
 {
-	doRunTest({}, {3}, {{
+	doRunTest({}, {3}, Program{{
 		{
-			{2, 0, 0},
+			{2, 0, 0, 1},
 			{
 				{
-					Program::Instruction::imm(1),
-					Program::Instruction::imm(2),
-					Program::Instruction::add(),
-					Program::Instruction::ret()
+					Visa::Instruction::imm(1),
+					Visa::Instruction::imm(2),
+					Visa::Instruction::add(),
+					Visa::Instruction::ret()
 				}
 			}
 		}
@@ -145,15 +26,15 @@ TEST(Interpreter, AddImm)
 
 TEST(Interpreter, SubImmFromArg)
 {
-	doRunTest({5}, {3}, {{
+	doRunTest({5}, {3}, Program{{
 		{
-			{2, 0, 1},
+			{2, 0, 1, 1},
 			{
 				{
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::imm(2),
-					Program::Instruction::sub(),
-					Program::Instruction::ret()
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::imm(2),
+					Visa::Instruction::sub(),
+					Visa::Instruction::ret()
 				}
 			}
 		}
@@ -162,15 +43,15 @@ TEST(Interpreter, SubImmFromArg)
 
 TEST(Interpreter, AddArgs)
 {
-	doRunTest({1, 2}, {3}, {{
+	doRunTest({1, 2}, {3}, Program{{
 		{
-			{2, 0, 2},
+			{2, 0, 2, 1},
 			{
 				{
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::add(),
-					Program::Instruction::ret()
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::add(),
+					Visa::Instruction::ret()
 				}
 			}
 		}
@@ -179,15 +60,15 @@ TEST(Interpreter, AddArgs)
 
 TEST(Interpreter, ImmStoreLoad)
 {
-	doRunTest({}, {123}, {{
+	doRunTest({}, {123}, Program{{
 		{
-			{1, 1, 0},
+			{1, 1, 0, 1},
 			{
 				{
-					Program::Instruction::imm(123),
-					Program::Instruction::storeLocal(0),
-					Program::Instruction::loadLocal(0),
-					Program::Instruction::ret()
+					Visa::Instruction::imm(123),
+					Visa::Instruction::storeLocal(0),
+					Visa::Instruction::loadLocal(0),
+					Visa::Instruction::ret()
 				}
 			}
 		}
@@ -196,15 +77,15 @@ TEST(Interpreter, ImmStoreLoad)
 
 TEST(Interpreter, Square)
 {
-	doRunTest({2}, {4}, {{
+	doRunTest({2}, {4}, Program{{
 		{
-			{2, 0, 1},
+			{2, 0, 1, 1},
 			{
 				{
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::dup(),
-					Program::Instruction::mul(),
-					Program::Instruction::ret()
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::dup(),
+					Visa::Instruction::mul(),
+					Visa::Instruction::ret()
 				}
 			}
 		}
@@ -213,18 +94,18 @@ TEST(Interpreter, Square)
 
 TEST(Interpreter, DivMod)
 {
-	doRunTest({23, 7}, {3, 2}, {{
+	doRunTest({23, 7}, {3, 2}, Program{{
 		{
-			{3, 0, 2},
+			{3, 0, 2, 2},
 			{
 				{
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::div(),
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::mod(),
-					Program::Instruction::ret()
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::div(),
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::mod(),
+					Visa::Instruction::ret()
 				}
 
 			}
@@ -234,21 +115,21 @@ TEST(Interpreter, DivMod)
 
 TEST(Interpreter, AndOrXor)
 {
-	doRunTest({3, 6}, {2, 7, 5}, {{
+	doRunTest({3, 6}, {2, 7, 5}, Program{{
 		{
-			{4, 0, 2},
+			{4, 0, 2, 3},
 			{
 				{
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::aAnd(),
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::aOr(),
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::aXor(),
-					Program::Instruction::ret()
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::aAnd(),
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::aOr(),
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::aXor(),
+					Visa::Instruction::ret()
 				}
 			}
 		}
@@ -257,17 +138,17 @@ TEST(Interpreter, AndOrXor)
 
 TEST(Interpreter, DropLastBits)
 {
-	doRunTest({7, 2}, {4}, {{
+	doRunTest({7, 2}, {4}, Program{{
 		{
-			{3, 0, 2},
+			{3, 0, 2, 1},
 			{
 				{
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::rsh(),
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::lsh(),
-					Program::Instruction::ret()
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::rsh(),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::lsh(),
+					Visa::Instruction::ret()
 				}
 
 			}
@@ -277,29 +158,30 @@ TEST(Interpreter, DropLastBits)
 
 TEST(Interpreter, ExpNoLocal)
 {
-	doRunTest({3, 3}, {27}, {{
+	doRunTest({3, 3}, {27}, Program{{
 		{
-			{3, 0, 2},
+			{3, 0, 2, 1},
 			{
 				{
-					Program::Instruction::imm(1),
+					Visa::Instruction::imm(1),
 				},
 				{
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::imm(0),
-					Program::Instruction::jeq(2),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::leq(),
+					Visa::Instruction::jcond(2),
 
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::imm(1),
-					Program::Instruction::sub(),
-					Program::Instruction::storeArgument(1),
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::sub(),
+					Visa::Instruction::storeArgument(1),
 
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::mul(),
-					Program::Instruction::jmp(1)
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::mul(),
+					Visa::Instruction::jmp(1)
 				},
 				{
-					Program::Instruction::ret()
+					Visa::Instruction::ret()
 				}
 			}
 		}
@@ -308,37 +190,38 @@ TEST(Interpreter, ExpNoLocal)
 
 TEST(Interpreter, ExpLocalLoop)
 {
-	doRunTest({5, 4}, {625}, {{
+	doRunTest({5, 4}, {625}, Program{{
 		{
-			{3, 2, 2},
+			{3, 2, 2, 1},
 			{
 				{
-					Program::Instruction::imm(1),
-					Program::Instruction::storeLocal(0),	// ret=1;
-					Program::Instruction::imm(0),
-					Program::Instruction::storeLocal(1),	// i=0;
+					Visa::Instruction::imm(1),
+					Visa::Instruction::storeLocal(0),	// ret=1;
+					Visa::Instruction::imm(0),
+					Visa::Instruction::storeLocal(1),	// i=0;
 				},
 				{
-					Program::Instruction::loadLocal(1),		// i < arg1
-					Program::Instruction::loadArgument(1),
-					Program::Instruction::jge(3),
+					Visa::Instruction::loadLocal(1),		// i < arg1
+					Visa::Instruction::loadArgument(1),
+					Visa::Instruction::lge(),
+					Visa::Instruction::jcond(3),
 				},
 				{
-					Program::Instruction::loadArgument(0),	// ret *= arg0;
-					Program::Instruction::loadLocal(0),
-					Program::Instruction::mul(),
-					Program::Instruction::storeLocal(0),
+					Visa::Instruction::loadArgument(0),	// ret *= arg0;
+					Visa::Instruction::loadLocal(0),
+					Visa::Instruction::mul(),
+					Visa::Instruction::storeLocal(0),
 
-					Program::Instruction::loadLocal(1),		// i++;
-					Program::Instruction::imm(1),
-					Program::Instruction::add(),
-					Program::Instruction::storeLocal(1),
+					Visa::Instruction::loadLocal(1),		// i++;
+					Visa::Instruction::imm(1),
+					Visa::Instruction::add(),
+					Visa::Instruction::storeLocal(1),
 
-					Program::Instruction::jmp(1)
+					Visa::Instruction::jmp(1)
 				},
 				{
-					Program::Instruction::loadLocal(0), 		// return ret;
-					Program::Instruction::ret()
+					Visa::Instruction::loadLocal(0), 		// return ret;
+					Visa::Instruction::ret()
 				}
 			}
 		}
@@ -347,31 +230,32 @@ TEST(Interpreter, ExpLocalLoop)
 
 TEST(Interpreter, Factorial)
 {
-	doRunTest({5}, {120}, {{
+	doRunTest({5}, {120}, Program{{
 		{
-			{3, 0, 1},
+			{3, 0, 1, 1},
 			{
 				{
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::imm(1),
-					Program::Instruction::jle(1),
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::lle(),
+					Visa::Instruction::jcond(1),
 
-					Program::Instruction::loadArgument(0),
-					Program::Instruction::dup(),
-					Program::Instruction::imm(1),
-					Program::Instruction::sub(),
+					Visa::Instruction::loadArgument(0),
+					Visa::Instruction::dup(),
+					Visa::Instruction::imm(1),
+					Visa::Instruction::sub(),
 
-					Program::Instruction::imm(0),
-					Program::Instruction::call(),
-					Program::Instruction::mul(),
+					Visa::Instruction::imm(0),
+					Visa::Instruction::call(),
+					Visa::Instruction::mul(),
 
-					Program::Instruction::jmp(2)
+					Visa::Instruction::jmp(2)
 				},
 				{
-					Program::Instruction::imm(1)
+					Visa::Instruction::imm(1)
 				},
 				{
-					Program::Instruction::ret()
+					Visa::Instruction::ret()
 				}
 			}
 		}

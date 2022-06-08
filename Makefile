@@ -2,6 +2,7 @@ OUTPUT = sdvm-test
 
 SOURCES += main.cpp
 SOURCES += TestInterpreter.cpp
+SOURCES += TestBuilder.cpp
 
 SOURCES += pet/1test/TestRunnerExperimental.cpp
 SOURCES += pet/ubiquitous/PrintfWriter.cpp
@@ -20,6 +21,7 @@ LIBS += gcov
 LD = $(CXX)
 
 include vm/mod.mk
+include tools/mod.mk
 include pet/mod.mk
 
 include ultimate-makefile/Makefile.ultimate
