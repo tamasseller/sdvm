@@ -5,9 +5,12 @@
 
 #include <memory>
 #include <cassert>
+#include <optional>
 
 struct Builder
 {
+	using Label = std::shared_ptr<std::optional<uint32_t>>;
+
 	struct Scope
 	{
 		const uint32_t offset;
@@ -29,7 +32,6 @@ struct Builder
 		const uint32_t nRet;
 		uint32_t nArgs = 0;
 
-
 		StatementStream isns;
 		std::shared_ptr<Scope> root = std::make_shared<Scope>(), current = root;
 
@@ -37,7 +39,6 @@ struct Builder
 		inline ProtoFunction(const ProtoFunction&) = delete;
 
 		inline void enterScope();
-
 		inline void leaveScope();
 
 		inline uint32_t countLocals() const;

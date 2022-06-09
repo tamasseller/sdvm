@@ -24,7 +24,7 @@ struct ExceptionalErrorHandler
 
 		switch(error)
 		{
-#define X(sym, desc) case InterpreterError::sym: sprintf(buff, desc, args...);
+#define X(sym, desc) case InterpreterError:: sym : sprintf(buff, desc, args...); break;
 	X_INTERPRETER_ERRORS()
 #undef X
 		default: sprintf(buff, "Unknown error");

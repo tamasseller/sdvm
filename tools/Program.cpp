@@ -2,30 +2,27 @@
 
 #include <stdexcept>
 
-void Program::init(Visa::FrameInfo &fInfo)
+Program::Reader::Reader(const Program& p, Visa::FrameInfo &fInfo):
+	p(p), fIt(p.functions.cbegin()), bIt(fIt->body.cbegin()), iIt(bIt->cbegin())
 {
-	fIt = functions.cbegin();
-	bIt = fIt->body.cbegin();
-	iIt = bIt->cbegin();
-
 	fInfo = fIt->info;
 }
 
-Program::RestorePoint Program::openFunction(uint32_t idx, Visa::FrameInfo &fInfo)
+Program::Reader::RestorePoint Program::Reader::openFunction(uint32_t idx, Visa::FrameInfo &fInfo)
 {
-	if(functions.size() <= idx)
+	if(p.functions.size() <= idx)
 	{
-		throw std::runtime_error("Unknown function called: " + std::to_string(idx) + " (should be below " + std::to_string(functions.size()));
+		throw std::runtime_error("Unknown function called: " + std::to_string(idx) + " (should be below " + std::to_string(p.functions.size()));
 	}
 
 	RestorePoint ret
 	{
-		(uint32_t)(fIt - functions.cbegin()),
+		(uint32_t)(fIt - p.functions.cbegin()),
 		(uint32_t)(bIt - fIt->body.cbegin()),
 		(uint32_t)(iIt - bIt->cbegin())
 	};
 
-	fIt = functions.cbegin() + idx;
+	fIt = p.functions.cbegin() + idx;
 	bIt = fIt->body.cbegin();
 	iIt = bIt->cbegin();
 
@@ -33,16 +30,16 @@ Program::RestorePoint Program::openFunction(uint32_t idx, Visa::FrameInfo &fInfo
 	return ret;
 }
 
-void Program::restore(RestorePoint& rp, Visa::FrameInfo& fInfo)
+void Program::Reader::restore(RestorePoint& rp, Visa::FrameInfo& fInfo)
 {
-	fIt = functions.cbegin() + rp.fIdx;
+	fIt = p.functions.cbegin() + rp.fIdx;
 	bIt = fIt->body.cbegin() + rp.bIdx;
 	iIt = bIt->cbegin() + rp.iIdx;
 
 	fInfo = fIt->info;
 }
 
-void Program::seekBlock(uint32_t idx)
+void Program::Reader::seekBlock(uint32_t idx)
 {
 	if(fIt->body.size() <= idx)
 	{
@@ -53,7 +50,7 @@ void Program::seekBlock(uint32_t idx)
 	iIt = bIt->cbegin();
 }
 
-bool Program::readNext(Visa::Instruction& isn)
+bool Program::Reader::readNext(Visa::Instruction& isn)
 {
 	while(iIt == bIt->cend())
 	{

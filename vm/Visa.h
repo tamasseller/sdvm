@@ -3,33 +3,32 @@
 
 #include <cstdint>
 
-#define X_BINARY_OPERATOR_LIST() 	\
-	X(Add, +)						\
-	X(Sub, -)						\
-	X(Mul, *)                       \
-	X(Div, /)						\
-	X(Mod, %)                       \
-	X(And, &)                       \
-	X(Ior, |)                       \
-	X(Xor, ^)						\
-	X(Lsh, <<)                      \
-	X(Rsh, >>)                      \
-	X(Equal, ==)                    \
-	X(Greater, >)                   \
-	X(Less, <)                      \
-	X(NotEqual, !=)                 \
-	X(NotGreater, <=)               \
-	X(NotLess, >=)					\
-	X(Both, &&)						\
-	X(Either, ||)
+#define X_BINARY_OPERATOR_LIST()        \
+    X(Add, +, "add")                    \
+    X(Sub, -, "sub")                    \
+    X(Mul, *, "mul")                    \
+    X(Div, /, "div")                    \
+    X(Mod, %, "mod")                    \
+    X(And, &, "and")                    \
+    X(Ior, |, "ior")                    \
+    X(Xor, ^, "xor")                    \
+    X(Lsh, <<, "lsh")                   \
+    X(Rsh, >>, "rsh")                   \
+    X(Equal, ==, "eq")                  \
+    X(Greater, >, "gt")                 \
+    X(Less, <, "lt")                    \
+    X(NotEqual, !=, "neq")              \
+    X(NotGreater, <=, "le")             \
+    X(NotLess, >=, "gt")                \
+    X(Both, &&, "land")                 \
+    X(Either, ||, "lor")
 
 struct Visa
 {
 	enum class OperationGroup
 	{
 		Binary,
-		Load,
-		Store,
+		Move,
 		Conditional,
 		Jump,
 		Call,
@@ -40,14 +39,14 @@ struct Visa
 
 	enum class BinaryOperation
 	{
-#define X(sym, op) sym,
+#define X(sym, op, mn) sym,
 		X_BINARY_OPERATOR_LIST()
 #undef X
 	};
 
-	enum class LoadStoreDestination
+	enum class MoveDetails
 	{
-		Argument, Local
+		FromArgument, FromLocal, ToArgument, ToLocal
 	};
 
 	struct Instruction
@@ -60,7 +59,7 @@ struct Visa
 
 			struct
 			{
-				LoadStoreDestination dest;
+				MoveDetails dest;
 				uint32_t varIdx;
 			};
 
@@ -70,10 +69,10 @@ struct Visa
 		};
 
 	private:
-		template<bool load, LoadStoreDestination dst>
+		template<MoveDetails dst>
 		static inline constexpr auto loadStore(uint32_t varIdx)
 		{
-			Instruction ret{load ? OperationGroup::Load : OperationGroup::Store};
+			Instruction ret{OperationGroup::Move};
 			ret.dest = dst;
 			ret.varIdx = varIdx;
 			return ret;
@@ -107,10 +106,10 @@ struct Visa
 		static inline constexpr auto lAnd() { return binary<BinaryOperation::Both>(); }
 		static inline constexpr auto lOr() { return binary<BinaryOperation::Either>(); }
 
-		static inline constexpr auto loadLocal(uint32_t varIdx) { return loadStore<true, LoadStoreDestination::Local>(varIdx); }
-		static inline constexpr auto loadArgument(uint32_t varIdx) { return loadStore<true, LoadStoreDestination::Argument>(varIdx); }
-		static inline constexpr auto storeLocal(uint32_t varIdx) { return loadStore<false, LoadStoreDestination::Local>(varIdx); }
-		static inline constexpr auto storeArgument(uint32_t varIdx) { return loadStore<false, LoadStoreDestination::Argument>(varIdx); }
+		static inline constexpr auto loadLocal(uint32_t varIdx) { return loadStore<MoveDetails::FromLocal>(varIdx); }
+		static inline constexpr auto loadArgument(uint32_t varIdx) { return loadStore<MoveDetails::FromArgument>(varIdx); }
+		static inline constexpr auto storeLocal(uint32_t varIdx) { return loadStore<MoveDetails::ToLocal>(varIdx); }
+		static inline constexpr auto storeArgument(uint32_t varIdx) { return loadStore<MoveDetails::ToArgument>(varIdx); }
 
 		static inline constexpr auto jcond(uint32_t target)
 		{
@@ -156,13 +155,12 @@ struct Visa
 		uint32_t maxStack, nLocals, nArgs, nRet;
 	};
 
-	static inline constexpr bool stackBalance(OperationGroup g, uint32_t &ret)
+	static inline constexpr bool stackBalance(Instruction isn, uint32_t &ret)
 	{
-		switch(g)
+		switch(isn.group)
 		{
 		case OperationGroup::Binary: 		ret = -1; return true;
-		case OperationGroup::Load: 			ret = 1;  return true;
-		case OperationGroup::Store: 		ret = -1; return true;
+		case OperationGroup::Move: 			ret = (isn.dest == MoveDetails::FromArgument || isn.dest == MoveDetails::FromLocal) ? 1 : -1;  return true;
 		case OperationGroup::Conditional: 	ret = -1; return true;
 		case OperationGroup::Jump: 			ret = 0;  return true;
 		case OperationGroup::Immediate: 	ret = 1;  return true;

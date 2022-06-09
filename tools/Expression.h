@@ -94,7 +94,7 @@ struct Expression
 	};
 };
 
-#define X(sym, op)																				\
+#define X(sym, op, mn)																			\
 static inline auto operator op(const Expression::RValue& l, const Expression::RValue& r) {		\
 	return Expression::BinaryOperator(Visa::BinaryOperation:: sym, l, r);						\
 }																								\

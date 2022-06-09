@@ -5,7 +5,7 @@
 void StatementStream::InstructionSink::takeNonControl(Visa::Instruction isn)
 {
 	uint32_t balance;
-	bool ok = Visa::stackBalance(isn.group, balance);
+	bool ok = Visa::stackBalance(isn, balance);
 	assert(ok);
 	stackLevel += balance;
 	maxStack = std::max(maxStack, stackLevel);

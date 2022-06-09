@@ -147,14 +147,15 @@ TEST(ErrorHandler, Unknown2)
 {
 	MOCK(Error)::EXPECT(Error).withParam((int)InterpreterError::UnknownOperation);
 
-	Visa::Instruction i = {.group = Visa::OperationGroup::Load};
-	i.dest = (Visa::LoadStoreDestination) -1;
+	Visa::Instruction i = {.group = Visa::OperationGroup::Move};
+	i.dest = (Visa::MoveDetails) -1;
 
 	execute({}, Program{{
 		{
-			{1, 0, 0, 1},
+			{1, 0, 0, 0},
 			{
 				{
+					Visa::Instruction::imm(10),
 					i,
 					Visa::Instruction::ret()
 				}
@@ -164,27 +165,6 @@ TEST(ErrorHandler, Unknown2)
 }
 
 TEST(ErrorHandler, Unknown3)
-{
-	MOCK(Error)::EXPECT(Error).withParam((int)InterpreterError::UnknownOperation);
-
-	Visa::Instruction i = {.group = Visa::OperationGroup::Store};
-	i.dest = (Visa::LoadStoreDestination) -1;
-
-	execute({}, Program{{
-		{
-			{1, 0, 0, 0},
-			{
-				{
-					Visa::Instruction::imm(0),
-					i,
-					Visa::Instruction::ret()
-				}
-			}
-		}
-	}});
-}
-
-TEST(ErrorHandler, Unknown4)
 {
 	MOCK(Error)::EXPECT(Error).withParam((int)InterpreterError::UnknownOperation);
 
@@ -258,4 +238,51 @@ TEST(ErrorHandler, NoReturnAtEnd)
 			}
 		},
 	}});
+}
+
+TEST(ErrorHandler, Exception)
+{
+	MOCK(Error)::EXPECT(Catch).withParam(1);
+	MOCK(Error)::EXPECT(Catch).withParam(2);
+	MOCK(Error)::EXPECT(Catch).withParam(3);
+
+	static constexpr const char* errorStrings[] =
+	{
+#define X(sym, str) str,
+		X_INTERPRETER_ERRORS()
+#undef X
+	};
+
+	try
+	{
+		ExceptionalErrorHandler::take(InterpreterError::Overflow);
+	}
+	catch(const ExceptionalErrorHandler::Exception &e)
+	{
+		CHECK(std::string(e.what()) == errorStrings[(int)InterpreterError::Overflow]);
+		MOCK(Error)::CALL(Catch).withParam(1);
+	}
+
+	try
+	{
+		ExceptionalErrorHandler::take(InterpreterError::ArgumentLoadOob, 1, 2);
+	}
+	catch(const ExceptionalErrorHandler::Exception &e)
+	{
+		char buff[1234];
+		sprintf(buff, errorStrings[(int)InterpreterError::ArgumentLoadOob], 1, 2);
+		CHECK(std::string(e.what()) == buff);
+		MOCK(Error)::CALL(Catch).withParam(2);
+	}
+
+	try
+	{
+		ExceptionalErrorHandler::take((InterpreterError)-1);
+	}
+	catch(const ExceptionalErrorHandler::Exception &e)
+	{
+		CHECK(std::string(e.what()) == "Unknown error");
+		MOCK(Error)::CALL(Catch).withParam(3);
+	}
+
 }

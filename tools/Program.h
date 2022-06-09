@@ -17,21 +17,27 @@ struct Program
 	};
 
 	std::vector<Function> functions;
-	decltype(functions.cbegin()) fIt;
-	decltype(fIt->body.cbegin()) bIt;
-	decltype(bIt->cbegin()) iIt;
 
-	void init(Visa::FrameInfo &fInfo);
-
-	struct RestorePoint
+	class Reader
 	{
-		uint32_t fIdx, bIdx, iIdx;
-	};
+		const Program& p;
+		decltype(functions.cbegin()) fIt;
+		decltype(fIt->body.cbegin()) bIt;
+		decltype(bIt->cbegin()) iIt;
 
-	RestorePoint openFunction(uint32_t idx, Visa::FrameInfo &fInfo);
-	void restore(RestorePoint& rp, Visa::FrameInfo& fInfo);
-	void seekBlock(uint32_t idx);
-	bool readNext(Visa::Instruction& isn);
+	public:
+		Reader(const Program& p, Visa::FrameInfo &fInfo);
+
+		struct RestorePoint
+		{
+			uint32_t fIdx, bIdx, iIdx;
+		};
+
+		RestorePoint openFunction(uint32_t idx, Visa::FrameInfo &fInfo);
+		void restore(RestorePoint& rp, Visa::FrameInfo& fInfo);
+		void seekBlock(uint32_t idx);
+		bool readNext(Visa::Instruction& isn);
+	};
 };
 
 #endif /* INMEMORYPROGRAMREADER_H_ */

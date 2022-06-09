@@ -105,14 +105,14 @@ class Interpreter
 	};
 
 public:
-	template<class ProgramReader>
-	static std::vector<uint32_t> interpret(ProgramReader& r, const std::vector<uint32_t> &args, size_t stackSize = 4096)
+	template<class Program>
+	static std::vector<uint32_t> interpret(Program& p, const std::vector<uint32_t> &args, size_t stackSize = 4096)
 	{
 		static constexpr uint32_t dummyFrameHeader[] = {-1u, -1u, -1u, -1u};
 		static_assert(frameHeaderWords == sizeof(dummyFrameHeader) / sizeof(dummyFrameHeader[0]));
 
 		Visa::FrameInfo fInfo;
-		r.init(fInfo);
+		typename Program::Reader r(p, fInfo);
 
 		uint32_t stack[stackSize];
 		std::copy(args.rbegin(), args.rend(), stack);
@@ -138,43 +138,32 @@ public:
 					break;
 				}
 
-				case Visa::OperationGroup::Load:
-				{
-					uint32_t v;
-
-					switch(isn.dest)
+				case Visa::OperationGroup::Move:
+					if(isn.dest == Visa::MoveDetails::FromLocal || isn.dest == Visa::MoveDetails::FromArgument)
 					{
-						case Visa::LoadStoreDestination::Local:
-							v = state.loadLocal(fInfo, isn.varIdx);
-							break;
-						case Visa::LoadStoreDestination::Argument:
-							v = state.loadArg(fInfo, isn.varIdx);
-							break;
-
-						default: ErrorHandler::take(InterpreterError::UnknownOperation);
+						const uint32_t v = (isn.dest == Visa::MoveDetails::FromLocal) ? state.loadLocal(fInfo, isn.varIdx) : state.loadArg(fInfo, isn.varIdx);
+						state.push(fInfo, v);
+						break;
 					}
-
-					state.push(fInfo, v);
-					break;
-				}
-
-				case Visa::OperationGroup::Store:
-				{
-					const uint32_t v = state.pop(fInfo);
-
-					switch(isn.dest)
+					else
 					{
-						case Visa::LoadStoreDestination::Local:
+						const uint32_t v = state.pop(fInfo);
+
+						if(isn.dest == Visa::MoveDetails::ToLocal)
+						{
 							state.storeLocal(fInfo, isn.varIdx, v);
-							break;
-						case Visa::LoadStoreDestination::Argument:
+						}
+						else if(isn.dest == Visa::MoveDetails::ToArgument)
+						{
 							state.storeArg(fInfo, isn.varIdx, v);
-							break;
+						}
+						else
+						{
+							ErrorHandler::take(InterpreterError::UnknownOperation);
+						}
 
-						default: ErrorHandler::take(InterpreterError::UnknownOperation);
+						break;
 					}
-					break;
-				}
 
 				case Visa::OperationGroup::Binary:
 				{
