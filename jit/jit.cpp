@@ -1,38 +1,38 @@
 #include <cstdint>
+#include <cstddef>
 
-register uint16_t** fnTabPtr asm("r12");
+static uint16_t* fnTab[16];
 
-uint16_t* fnTab[16];
+static uint16_t buffer[1024];
+static uint16_t *ptr;
 
-static inline uint32_t &uart()
-{
-	return *((uint32_t*)0x4000C000);
-}
-
-extern uint16_t jitEntry;
+extern "C" void startVm(uint16_t **fnTab, size_t nFnTab);
 
 extern "C" void entry()
 {
-	fnTabPtr = fnTab;
-
-	for(auto& f: fnTab)
-	{
-		f = &jitEntry;
-	}
-
-	((void(*)(uint16_t**))fnTab[0])(fnTab + 0);
+	ptr = buffer;
+	startVm(fnTab, sizeof(fnTab) / sizeof(fnTab[0]));
 }
 
-uint16_t* buffer[1024], **ptr = buffer;
+extern "C" const uint16_t f, fEnd, g, gEnd;
 
-const uint16_t f, g;
-
-static constexpr const uint16_t* const sources[] = {&f, &g};
+static constexpr const struct Func { const uint16_t* begin, *end; } sources[] =
+{
+	{&f, &fEnd},
+	{&g, &gEnd}
+};
 
 extern "C" void jit(uint16_t** fnTabEntry)
 {
-	const auto idx = fnTabEntry - fnTabPtr;
+	const auto idx = fnTabEntry - fnTab;
 
-	fnTabPtr[idx] = ptr;
+	fnTab[idx] = (uint16_t*)((uintptr_t)ptr | 1u);
 
+	const auto beg = (uint16_t*)((uintptr_t)sources[idx].begin & ~1u);
+	const auto end = (uint16_t*)((uintptr_t)sources[idx].end & ~1u);
+
+	for(const uint16_t* src = beg; src != end;)
+	{
+		*ptr++ = *src++;
+	}
 }
