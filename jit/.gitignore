@@ -1,1 +1,2 @@
-jump.elf
+*.elf
+*.o

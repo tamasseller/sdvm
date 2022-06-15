@@ -13,12 +13,11 @@
 
 # Before:
 #  - r0, r1: forwarded args
-#  - r2: vmTab offset
+#  - r2: vmTab target offset
 # After.
 #  - r0, r1: forwarded args (unchanged)
-#  - r2: targetAddr
-#  - r3: vmTab
-#  - pc: targetAddr
+#  - r2, r3: clobbered
+#  - pc: target address
 vmDispatch:
     ldr r3, =vmTab
     ldr r3, [r3, r2]
@@ -95,7 +94,7 @@ resume:
 
 .macro jitdFuncHeader fnIdx
 .thumb_func
-Lentry\fnIdx:
+entry\fnIdx:
     mov r0, lr
     movs r1, \fnIdx
     movs r2, vmTabOffsEnterNonLeaf
