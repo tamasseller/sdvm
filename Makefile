@@ -1,6 +1,7 @@
 OUTPUT = sdvm-test
 
 SOURCES += main.cpp
+SOURCES += TestAsm.cpp
 SOURCES += TestPrinter.cpp
 SOURCES += TestBuilder.cpp
 SOURCES += TestInterpreter.cpp
@@ -16,7 +17,7 @@ CXXFLAGS += -std=c++17
 CXXFLAGS += --coverage
 
 COVROOT = .
-COVFLAGS = --filter vm --filter tools
+COVFLAGS = --filter vm --filter tools --filter jit
 
 LIBS += gcov
 

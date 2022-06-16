@@ -6,7 +6,7 @@
 
 TEST_GROUP(Builder) {};
 
-TEST(Builder, DoublePlustThree)
+TEST(Builder, DoublePlusThree)
 {
 	Builder b;
 

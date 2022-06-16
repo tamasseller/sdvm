@@ -2,11 +2,85 @@
 #define JIT_ARMV6_H_
 
 #include <cstdint>
+#include <cstddef>
 #include <cassert>
 
 struct ArmV6
 {
-	using Reg = uint8_t;
+	struct LoReg
+	{
+		uint16_t idx;
+
+		inline LoReg() = default;
+		inline LoReg(const LoReg&) = default;
+		inline LoReg(uint16_t idx): idx(idx) {
+			assert(idx < 8);
+		}
+	};
+
+	struct AnyReg
+	{
+		uint16_t idx;
+
+		inline AnyReg() = default;
+		inline AnyReg(const AnyReg&) = default;
+		inline AnyReg(const LoReg& lo): idx(lo.idx) {}
+
+		inline AnyReg(uint16_t idx): idx(idx) {
+			assert(idx < 16);
+		}
+	};
+
+	template<size_t n>
+	struct Imm {
+		uint16_t v;
+
+		inline Imm() = default;
+		inline Imm(const Imm&) = default;
+		Imm(uint16_t v): v(v) {
+			assert(v < (1 << n));
+		}
+	};
+
+	template<size_t a, size_t n>
+	struct Uoff {
+		uint16_t v;
+
+		inline Uoff() = default;
+		inline Uoff(const Uoff&) = default;
+		Uoff(uint16_t v): v(v >> a) {
+			assert((v & ~(-1 << a)) == 0);
+			assert(v < (1 << (n + a)));
+		}
+	};
+
+	template<size_t a, size_t n>
+	struct Ioff {
+		uint16_t v;
+
+		inline Ioff() = default;
+		inline Ioff(const Ioff&) = default;
+		Ioff(int16_t v): v(v >> a) {
+			assert((v & ~(-1 << a)) == 0);
+			assert(-(1 << (n + a - 1)) <= v && v < (1 << (n + a - 1)));
+		}
+	};
+
+	struct LoRegs
+	{
+		uint16_t flags;
+
+		inline LoRegs& add(LoReg r) {
+			flags |= 1 << r.idx;
+			return *this;
+		}
+
+		inline LoRegs add(LoReg r) const {
+			LoRegs ret = *this;
+			ret.add(r);
+			return ret;
+		}
+	};
 
 private:
 	enum class Reg2Op: uint16_t
@@ -37,8 +111,7 @@ private:
 		REVSH = 0b1011101011'000'000,
 	};
 
-	static inline uint16_t reg2(Reg2Op op, Reg dn, Reg m) {
-		assert(dn < 8 && m < 8);
+	static constexpr inline uint16_t fmtReg2(Reg2Op op, uint16_t dn, uint16_t m) {
 		return (uint16_t)op | (m << 3) | dn;
 	}
 
@@ -53,15 +126,13 @@ private:
 		STRH   = 0b0101001'000'000'000,
 		STRB   = 0b0101010'000'000'000,
 		LDRSB  = 0b0101011'000'000'000,
-		LDR    = 0b0101110'000'000'000,
+		LDR    = 0b0101100'000'000'000,
 		LDRH   = 0b0101101'000'000'000,
 		LDRB   = 0b0101110'000'000'000,
 		LDRSH  = 0b0101111'000'000'000,
 	};
 
-	static inline uint16_t reg3(Reg3Op op, Reg dt, Reg n, Reg m)
-	{
-		assert(dt < 8 && m < 8 && n < 8);
+	static inline uint16_t fmtReg3(Reg3Op op, uint16_t dt, uint16_t n, uint16_t m) {
 		return (uint16_t)op | (m << 6) | (n << 3) | dt;
 	}
 
@@ -79,9 +150,8 @@ private:
 		LDRH = 0b10001'00000'000'000,
 	};
 
-	static inline uint16_t imm5(Imm5Op op, Reg dt, Reg mn, uint16_t imm5)
+	static inline uint16_t fmtImm5(Imm5Op op, uint16_t dt, uint16_t mn, uint16_t imm5)
 	{
-		assert(dt < 8 && mn < 8 && imm5 < 32);
 		return (uint16_t)op | (imm5 << 6) | (mn << 3) | dt;
 	}
 
@@ -92,9 +162,8 @@ private:
 		DECRSP = 0b101100001'0000000,
 	};
 
-	static inline uint16_t imm7(Imm7Op op, uint16_t imm7)
+	static inline uint16_t fmtImm7(Imm7Op op, uint16_t imm7)
 	{
-		assert(imm7 < 128);
 		return (uint16_t)op | imm7;
 	}
 
@@ -112,9 +181,8 @@ private:
 		ADDSP = 0b10101'000'00000000,
 	};
 
-	static inline uint16_t imm8(Imm8Op op, Reg r, uint16_t imm8)
+	static inline uint16_t fmtImm8(Imm8Op op, uint16_t r, uint16_t imm8)
 	{
-		assert(r < 8 && imm8 < 256);
 		return (uint16_t) op | (r << 8) | imm8;
 	}
 
@@ -129,7 +197,7 @@ private:
 		SEV   = 0b1011'1111'0100'0000,
 	};
 
-	static inline uint16_t noArg(NoArgOp op) {
+	static inline uint16_t fmtNoArg(NoArgOp op) {
 		return (uint16_t)op;
 	}
 
@@ -146,173 +214,146 @@ private:
 		HI  = 0b1101'1000'00000000,	// Unsigned higher 			  C == 1 && Z == 0
 		LS  = 0b1101'1001'00000000,	// Unsigned lower or same 	  C == 0 && Z == 1
 		GE  = 0b1101'1010'00000000,	// Signed greater or equal    N == V
-		LT  = 0b1101'1010'00000000,	// Signed less than           N != V
-		GT  = 0b1101'1010'00000000,	// Signed greater than        Z == 0 && N == V
+		LT  = 0b1101'1011'00000000,	// Signed less than           N != V
+		GT  = 0b1101'1100'00000000,	// Signed greater than        Z == 0 && N == V
 		LE  = 0b1101'1101'00000000,	// Signed less than or equal  Z == 1 || N != V
-		AL  = 0b1101'1110'00000000,	// Always
 		UDF = 0b1101'1110'00000000,	// Permanently undefined
 		SVC = 0b1101'1111'00000000,	// Supervisor call
 	};
 
-	static inline uint16_t branchSvc(BranchOp op, uint16_t imm8)
+	static inline uint16_t fmtBranchSvc(BranchOp op, uint16_t imm8)
 	{
-		assert(imm8 < 256);
-		return (uint16_t)op << 8 | imm8;
+		return (uint16_t)op | imm8;
 	}
 
 	enum class HiRegOp: uint16_t
 	{
-		ADD = 0b01000100,
-		CMP = 0b01000101,
-		MOV = 0b01000110,
-		JMP = 0b01000111,
+		ADD = 0b01000100'00000000,
+		CMP = 0b01000101'00000000,
+		MOV = 0b01000110'00000000,
+		JMP = 0b01000111'00000000,
 	};
 
-	static inline uint16_t hiReg(HiRegOp op, Reg dn, Reg m)
-	{
-		assert(dn < 16 && m < 16);
+	static inline uint16_t fmtHiReg(HiRegOp op, uint16_t dn, uint16_t m) {
 		return (uint16_t)op  | (((uint16_t)dn >> 3) << 7) | m << 3 | (dn & 0b0111);
 	}
 
-
-	//      TTTTT  BBBB   DDDD
-	//        T    B   B  D   D
-	//        T    BBBB   D   D
-	//        T    B   B  D   D
-	//        T    BBBB   DDDD
-	//
-    //     ˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇ
-
-
-	struct LowRegisterList
-	{
-		uint8_t flags;
-
-		inline void addRegister(Reg r) {
-			flags |= 1 << r;
-		}
-	};
-
-	static inline uint16_t push(LowRegisterList regFlags, bool includeLr) {
-		return 0b1011'0'10'0'00000000 | ((uint16_t)includeLr << 8) | regFlags;
+	static inline uint16_t fmtPushPop(bool pop, bool includeExtra, uint16_t regFlags) {
+		return 0b1011'0'10'0'00000000 | ((uint16_t)pop << 11) | ((uint16_t)includeExtra << 8) | regFlags;
 	}
 
-	static inline uint16_t pop(LowRegisterList regFlags, bool includePc) {
-		return 0b1011'1'10'0'00000000 | ((uint16_t)includePc << 8) | regFlags;
-	}
-
-	static inline uint16_t lsMia(bool load, Reg n, LowRegisterList regFlags)
-	{
-		assert(n < 16);
-		return 0b11000'00000000000 | ((uint16_t)load << 8) | regFlags;
+	static inline uint16_t lsMia(bool load, uint16_t n, uint16_t regFlags) {
+		return 0b11000'00000000000 | ((uint16_t)load << 11) | ((uint16_t)n << 8) | regFlags;
 	}
 
 public:
-	static inline uint16_t ands(Reg dn, Reg m) { return reg2(Reg2Op::AND, dn, m); }
-	static inline uint16_t eors(Reg dn, Reg m) { return reg2(Reg2Op::EOR, dn, m); }
-	static inline uint16_t lsls(Reg dn, Reg m) { return reg2(Reg2Op::LSL, dn, m); }
-	static inline uint16_t lsrs(Reg dn, Reg m) { return reg2(Reg2Op::LSR, dn, m); }
-	static inline uint16_t asrs(Reg dn, Reg m) { return reg2(Reg2Op::ASR, dn, m); }
-	static inline uint16_t adcs(Reg dn, Reg m) { return reg2(Reg2Op::ADC, dn, m); }
-	static inline uint16_t sbcs(Reg dn, Reg m) { return reg2(Reg2Op::SBC, dn, m); }
-	static inline uint16_t rors(Reg dn, Reg m) { return reg2(Reg2Op::ROR, dn, m); }
-	static inline uint16_t tst(Reg n, Reg m)   { return reg2(Reg2Op::TST, n, m); }
-	static inline uint16_t rsb(Reg d, Reg m)   { return reg2(Reg2Op::RSB, d, m); }
-	static inline uint16_t cmp(Reg n, Reg m)   { return reg2(Reg2Op::CMP, n, m); }
-	static inline uint16_t cmn(Reg n, Reg m)   { return reg2(Reg2Op::CMN, n, m); }
-	static inline uint16_t orrs(Reg dn, Reg m) { return reg2(Reg2Op::ORR, dn, m); }
-	static inline uint16_t muls(Reg dn, Reg m) { return reg2(Reg2Op::MUL, dn, m); }
-	static inline uint16_t bics(Reg dn, Reg m) { return reg2(Reg2Op::BIC, dn, m); }
-	static inline uint16_t mvns(Reg dn, Reg m) { return reg2(Reg2Op::MVN, dn, m); }
-	static inline uint16_t sxth(Reg d, Reg m)  { return reg2(Reg2Op::SXH, d, m); }
-	static inline uint16_t sxtb(Reg d, Reg m)  { return reg2(Reg2Op::SXB, d, m); }
-	static inline uint16_t uxth(Reg d, Reg m)  { return reg2(Reg2Op::UXH, d, m); }
-	static inline uint16_t uxtb(Reg d, Reg m)  { return reg2(Reg2Op::UXB, d, m); }
-	static inline uint16_t rev(Reg d, Reg m)   { return reg2(Reg2Op::REV, d, m); }
-	static inline uint16_t rev16(Reg d, Reg m) { return reg2(Reg2Op::REV16, d, m); }
-	static inline uint16_t revsh(Reg d, Reg m) { return reg2(Reg2Op::REVSH, d, m); }
+	static inline uint16_t ands (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::AND,  dn.idx, m.idx); }
+	static inline uint16_t eors (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::EOR,  dn.idx, m.idx); }
+	static inline uint16_t lsls (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::LSL,  dn.idx, m.idx); }
+	static inline uint16_t lsrs (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::LSR,  dn.idx, m.idx); }
+	static inline uint16_t asrs (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::ASR,  dn.idx, m.idx); }
+	static inline uint16_t adcs (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::ADC,  dn.idx, m.idx); }
+	static inline uint16_t sbcs (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::SBC,  dn.idx, m.idx); }
+	static inline uint16_t rors (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::ROR,  dn.idx, m.idx); }
+	static inline uint16_t tst  (LoReg n,  LoReg m) { return fmtReg2(Reg2Op::TST,   n.idx, m.idx); }
+	static inline uint16_t negs (LoReg d,  LoReg m) { return fmtReg2(Reg2Op::RSB,   d.idx, m.idx); }
+	static inline uint16_t cmp  (LoReg n,  LoReg m) { return fmtReg2(Reg2Op::CMP,   n.idx, m.idx); }
+	static inline uint16_t cmn  (LoReg n,  LoReg m) { return fmtReg2(Reg2Op::CMN,   n.idx, m.idx); }
+	static inline uint16_t orrs (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::ORR,  dn.idx, m.idx); }
+	static inline uint16_t muls (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::MUL,  dn.idx, m.idx); }
+	static inline uint16_t bics (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::BIC,  dn.idx, m.idx); }
+	static inline uint16_t mvns (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::MVN,  dn.idx, m.idx); }
+	static inline uint16_t sxth (LoReg d,  LoReg m) { return fmtReg2(Reg2Op::SXH,   d.idx, m.idx); }
+	static inline uint16_t sxtb (LoReg d,  LoReg m) { return fmtReg2(Reg2Op::SXB,   d.idx, m.idx); }
+	static inline uint16_t uxth (LoReg d,  LoReg m) { return fmtReg2(Reg2Op::UXH,   d.idx, m.idx); }
+	static inline uint16_t uxtb (LoReg d,  LoReg m) { return fmtReg2(Reg2Op::UXB,   d.idx, m.idx); }
+	static inline uint16_t rev  (LoReg d,  LoReg m) { return fmtReg2(Reg2Op::REV,   d.idx, m.idx); }
+	static inline uint16_t rev16(LoReg d,  LoReg m) { return fmtReg2(Reg2Op::REV16, d.idx, m.idx); }
+	static inline uint16_t revsh(LoReg d,  LoReg m) { return fmtReg2(Reg2Op::REVSH, d.idx, m.idx); }
 
-	static inline uint16_t addsReg(Reg d, Reg n, Reg m)          { return reg3(Reg3Op::ADDREG, d, n, m); }
-	static inline uint16_t addsImm3(Reg d, Reg n, uint16_t imm)  { return reg3(Reg3Op::ADDIMM, d, n, imm); }
-	static inline uint16_t subsReg(Reg d, Reg n, Reg m)          { return reg3(Reg3Op::SUBREG, d, n, m); }
-	static inline uint16_t subsImm3(Reg d, Reg n, uint16_t imm)  { return reg3(Reg3Op::SUBIMM, d, n, imm); }
-	static inline uint16_t str(Reg t, Reg n, Reg m)              { return reg3(Reg3Op::STR,    t, n, m); }
-	static inline uint16_t strh(Reg t, Reg n, Reg m)             { return reg3(Reg3Op::STRH,   t, n, m); }
-	static inline uint16_t strb(Reg t, Reg n, Reg m)             { return reg3(Reg3Op::STRB,   t, n, m); }
-	static inline uint16_t ldrsb(Reg t, Reg n, Reg m)            { return reg3(Reg3Op::LDRSB,  t, n, m); }
-	static inline uint16_t ldr(Reg t, Reg n, Reg m)              { return reg3(Reg3Op::LDR,    t, n, m); }
-	static inline uint16_t ldrh(Reg t, Reg n, Reg m)             { return reg3(Reg3Op::LDRH,   t, n, m); }
-	static inline uint16_t ldrb(Reg t, Reg n, Reg m)             { return reg3(Reg3Op::LDRB,   t, n, m); }
-	static inline uint16_t ldrsh(Reg t, Reg n, Reg m)            { return reg3(Reg3Op::LDRSH,  t, n, m); }
+	static inline uint16_t adds (LoReg d, LoReg n, Imm<3> imm) { return fmtReg3(Reg3Op::ADDIMM, d.idx, n.idx, imm.v); }
+	static inline uint16_t subs (LoReg d, LoReg n, Imm<3> imm) { return fmtReg3(Reg3Op::SUBIMM, d.idx, n.idx, imm.v); }
+	static inline uint16_t adds (LoReg d, LoReg n, LoReg m)    { return fmtReg3(Reg3Op::ADDREG, d.idx, n.idx, m.idx); }
+	static inline uint16_t subs (LoReg d, LoReg n, LoReg m)    { return fmtReg3(Reg3Op::SUBREG, d.idx, n.idx, m.idx); }
+	static inline uint16_t str  (LoReg t, LoReg n, LoReg m)    { return fmtReg3(Reg3Op::STR,    t.idx, n.idx, m.idx); }
+	static inline uint16_t strh (LoReg t, LoReg n, LoReg m)    { return fmtReg3(Reg3Op::STRH,   t.idx, n.idx, m.idx); }
+	static inline uint16_t strb (LoReg t, LoReg n, LoReg m)    { return fmtReg3(Reg3Op::STRB,   t.idx, n.idx, m.idx); }
+	static inline uint16_t ldrsb(LoReg t, LoReg n, LoReg m)    { return fmtReg3(Reg3Op::LDRSB,  t.idx, n.idx, m.idx); }
+	static inline uint16_t ldr  (LoReg t, LoReg n, LoReg m)    { return fmtReg3(Reg3Op::LDR,    t.idx, n.idx, m.idx); }
+	static inline uint16_t ldrh (LoReg t, LoReg n, LoReg m)    { return fmtReg3(Reg3Op::LDRH,   t.idx, n.idx, m.idx); }
+	static inline uint16_t ldrb (LoReg t, LoReg n, LoReg m)    { return fmtReg3(Reg3Op::LDRB,   t.idx, n.idx, m.idx); }
+	static inline uint16_t ldrsh(LoReg t, LoReg n, LoReg m)    { return fmtReg3(Reg3Op::LDRSH,  t.idx, n.idx, m.idx); }
 
-	static inline uint16_t lslsImm5(Reg d, Reg m, uint16_t imm) { return imm5(Imm5Op::LSL, d, m, imm); }
-	static inline uint16_t lsrsImm5(Reg d, Reg m, uint16_t imm) { return imm5(Imm5Op::LSR, d, m, imm); }
-	static inline uint16_t asrsImm5(Reg d, Reg m, uint16_t imm) { return imm5(Imm5Op::ASR, d, m, imm); }
-	static inline uint16_t strImm5(Reg t, Reg n, uint16_t imm)  { return imm5(Imm5Op::STR, t, n, imm); }
-	static inline uint16_t ldrImm5(Reg t, Reg n, uint16_t imm)  { return imm5(Imm5Op::LDR, t, n, imm); }
-	static inline uint16_t strbImm5(Reg t, Reg n, uint16_t imm) { return imm5(Imm5Op::STRB, t, n, imm); }
-	static inline uint16_t ldrbImm5(Reg t, Reg n, uint16_t imm) { return imm5(Imm5Op::LDRB, t, n, imm); }
-	static inline uint16_t strhImm5(Reg t, Reg n, uint16_t imm) { return imm5(Imm5Op::STRH, t, n, imm); }
-	static inline uint16_t ldrhImm5(Reg t, Reg n, uint16_t imm) { return imm5(Imm5Op::LDRH, t, n, imm); }
+	static inline uint16_t lsls(LoReg d, LoReg m, Imm<5> imm)     { return fmtImm5(Imm5Op::LSL,  d.idx, m.idx, imm.v); }
+	static inline uint16_t lsrs(LoReg d, LoReg m, Imm<5> imm)     { return fmtImm5(Imm5Op::LSR,  d.idx, m.idx, imm.v); }
+	static inline uint16_t asrs(LoReg d, LoReg m, Imm<5> imm)     { return fmtImm5(Imm5Op::ASR,  d.idx, m.idx, imm.v); }
+	static inline uint16_t str (LoReg t, LoReg n, Uoff<2, 5> imm) { return fmtImm5(Imm5Op::STR,  t.idx, n.idx, imm.v); }
+	static inline uint16_t ldr (LoReg t, LoReg n, Uoff<2, 5> imm) { return fmtImm5(Imm5Op::LDR,  t.idx, n.idx, imm.v); }
+	static inline uint16_t strh(LoReg t, LoReg n, Uoff<1, 5> imm) { return fmtImm5(Imm5Op::STRH, t.idx, n.idx, imm.v); }
+	static inline uint16_t ldrh(LoReg t, LoReg n, Uoff<1, 5> imm) { return fmtImm5(Imm5Op::LDRH, t.idx, n.idx, imm.v); }
+	static inline uint16_t strb(LoReg t, LoReg n, Uoff<0, 5> imm) { return fmtImm5(Imm5Op::STRB, t.idx, n.idx, imm.v); }
+	static inline uint16_t ldrb(LoReg t, LoReg n, Uoff<0, 5> imm) { return fmtImm5(Imm5Op::LDRB, t.idx, n.idx, imm.v); }
 
-	static inline uint16_t incrSp(uint16_t imm) { return imm7(Imm7Op::INCRSP, imm); }
-	static inline uint16_t decrSp(uint16_t imm) { return imm7(Imm7Op::DECRSP, imm); }
+	static inline uint16_t incrSp(Uoff<2, 7> imm) { return fmtImm7(Imm7Op::INCRSP, imm.v); }
+	static inline uint16_t decrSp(Uoff<2, 7> imm) { return fmtImm7(Imm7Op::DECRSP, imm.v); }
 
-	static inline uint16_t movsImm8(Reg d, uint16_t imm)  { return imm8(Imm8Op::MOV, d, imm); }
-	static inline uint16_t cmpImm8(Reg n, uint16_t imm)   { return imm8(Imm8Op::CMP, n, imm); }
-	static inline uint16_t addsImm8(Reg dn, uint16_t imm) { return imm8(Imm8Op::ADD, dn, imm); }
-	static inline uint16_t subsImm8(Reg dn, uint16_t imm) { return imm8(Imm8Op::SUB, dn, imm); }
-	static inline uint16_t strSp(Reg t, uint16_t imm)     { return imm8(Imm8Op::STRSP, t, imm); }
-	static inline uint16_t ldrSp(Reg t, uint16_t imm)     { return imm8(Imm8Op::LDRSP, t, imm); }
-	static inline uint16_t ldrPc(Reg t, uint16_t imm)     { return imm8(Imm8Op::LDR, t, imm); }
-	static inline uint16_t adr(Reg d, uint16_t imm)       { return imm8(Imm8Op::LDR, d, imm); }
-	static inline uint16_t addSp(Reg d, uint16_t imm)     { return imm8(Imm8Op::LDR, d, imm); }
+	static inline uint16_t movs (LoReg  d, Imm<8> imm)     { return fmtImm8(Imm8Op::MOV,   d.idx,  imm.v); }
+	static inline uint16_t cmp  (LoReg  n, Imm<8> imm)     { return fmtImm8(Imm8Op::CMP,   n.idx,  imm.v); }
+	static inline uint16_t adds (LoReg dn, Imm<8> imm)     { return fmtImm8(Imm8Op::ADD,   dn.idx, imm.v); }
+	static inline uint16_t subs (LoReg dn, Imm<8> imm)     { return fmtImm8(Imm8Op::SUB,   dn.idx, imm.v); }
+	static inline uint16_t strSp(LoReg  t, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::STRSP, t.idx,  imm.v); }
+	static inline uint16_t ldrSp(LoReg  t, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::LDRSP, t.idx,  imm.v); }
+	static inline uint16_t ldrPc(LoReg  t, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::LDR,   t.idx,  imm.v); }
+	static inline uint16_t adr  (LoReg  d, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::ADR,   d.idx,  imm.v); }
+	static inline uint16_t addSp(LoReg  d, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::ADDSP, d.idx,  imm.v); }
 
-	static inline uint16_t bkpt(uint8_t imm8) {
-		return 0b10111110'00000000 | imm8;
-	}
+	static inline uint16_t add  (AnyReg dn, AnyReg m) { return fmtHiReg(HiRegOp::ADD, dn.idx, m.idx); }
+	static inline uint16_t mov  (AnyReg dn, AnyReg m) { return fmtHiReg(HiRegOp::MOV, dn.idx, m.idx); }
+	static inline uint16_t blx  (AnyReg m)            { return fmtHiReg(HiRegOp::JMP, 0b1000, m.idx); }
+	static inline uint16_t bx   (AnyReg m)            { return fmtHiReg(HiRegOp::JMP, 0b0000, m.idx); }
 
-	static inline uint16_t cpsie() { return noArg(NoArgOp::CPSIE); }
-	static inline uint16_t cpsid() { return noArg(NoArgOp::CPSID); }
-	static inline uint16_t nop()   { return noArg(NoArgOp::NOP); }
-	static inline uint16_t yield() { return noArg(NoArgOp::YIELD); }
-	static inline uint16_t wfe()   { return noArg(NoArgOp::WFE); }
-	static inline uint16_t wfi()   { return noArg(NoArgOp::WFI); }
-	static inline uint16_t sev()   { return noArg(NoArgOp::SEV); }
-
-	static inline uint16_t beq(uint16_t imm) { return branchSvc(BranchOp::EQ, imm); }
-	static inline uint16_t bne(uint16_t imm) { return branchSvc(BranchOp::NE, imm); }
-	static inline uint16_t bhs(uint16_t imm) { return branchSvc(BranchOp::HS, imm); }
-	static inline uint16_t blo(uint16_t imm) { return branchSvc(BranchOp::LO, imm); }
-	static inline uint16_t bmi(uint16_t imm) { return branchSvc(BranchOp::MI, imm); }
-	static inline uint16_t bpl(uint16_t imm) { return branchSvc(BranchOp::PL, imm); }
-	static inline uint16_t bvs(uint16_t imm) { return branchSvc(BranchOp::VS, imm); }
-	static inline uint16_t bvc(uint16_t imm) { return branchSvc(BranchOp::VC, imm); }
-	static inline uint16_t bhi(uint16_t imm) { return branchSvc(BranchOp::HI, imm); }
-	static inline uint16_t bls(uint16_t imm) { return branchSvc(BranchOp::LS, imm); }
-	static inline uint16_t bge(uint16_t imm) { return branchSvc(BranchOp::GE, imm); }
-	static inline uint16_t blt(uint16_t imm) { return branchSvc(BranchOp::LT, imm); }
-	static inline uint16_t bgt(uint16_t imm) { return branchSvc(BranchOp::GT, imm); }
-	static inline uint16_t ble(uint16_t imm) { return branchSvc(BranchOp::LE, imm); }
-	static inline uint16_t bal(uint16_t imm) { return branchSvc(BranchOp::AL, imm); }
-	static inline uint16_t udf(uint16_t imm) { return branchSvc(BranchOp::UDF, imm); }
-	static inline uint16_t svc(uint16_t imm) { return branchSvc(BranchOp::SVC, imm); }
-
-	static inline uint16_t addHi(Reg dn, Reg m) { return hiReg(HiRegOp::ADD, dn, m); }
-	static inline uint16_t movHi(Reg dn, Reg m) { return hiReg(HiRegOp::MOV, dn, m); }
-	static inline uint16_t blx(Reg m)           { return hiReg(HiRegOp::JMP, 0b1000, m); }
-	static inline uint16_t bx(Reg m)            { return hiReg(HiRegOp::JMP, 0b0000, m); }
-	static inline uint16_t cmpHi(Reg n, Reg m)
+	static inline uint16_t cmp(AnyReg n, AnyReg m)
 	{
-		assert((n & 0b1000) || (m & 0b1000));
-		return hiReg(HiRegOp::CMP, n, m);
+		assert((n.idx & 0b1000) || (m.idx & 0b1000));
+		return fmtHiReg(HiRegOp::CMP, n.idx, m.idx);
 	}
 
-	static inline uint16_t branchImm11(uint16_t imm11)
-	{
-		assert(imm11 < 4096);
-		return 0b11100'00000000000 | imm11;
-	}
+	static inline uint16_t pushWoLr  (LoRegs l) { return fmtPushPop(false, false, l.flags); }
+	static inline uint16_t pushWithLr(LoRegs l) { return fmtPushPop(false, true,  l.flags); }
+	static inline uint16_t popWoPc   (LoRegs l) { return fmtPushPop(true,  false, l.flags); }
+	static inline uint16_t popWithPc (LoRegs l) { return fmtPushPop(true,  true,  l.flags); }
+
+	static inline uint16_t stmia (LoReg n, LoRegs l) { return lsMia(false, n.idx, l.flags); }
+	static inline uint16_t ldmia (LoReg n, LoRegs l) { return lsMia(true,  n.idx, l.flags); }
+
+	static inline uint16_t beq(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::EQ,  off.v); }
+	static inline uint16_t bne(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::NE,  off.v); }
+	static inline uint16_t bhs(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::HS,  off.v); }
+	static inline uint16_t blo(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::LO,  off.v); }
+	static inline uint16_t bmi(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::MI,  off.v); }
+	static inline uint16_t bpl(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::PL,  off.v); }
+	static inline uint16_t bvs(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::VS,  off.v); }
+	static inline uint16_t bvc(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::VC,  off.v); }
+	static inline uint16_t bhi(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::HI,  off.v); }
+	static inline uint16_t bls(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::LS,  off.v); }
+	static inline uint16_t bge(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::GE,  off.v); }
+	static inline uint16_t blt(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::LT,  off.v); }
+	static inline uint16_t bgt(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::GT,  off.v); }
+	static inline uint16_t ble(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::LE,  off.v); }
+	static inline uint16_t udf    (Imm<8> off) { return fmtBranchSvc(BranchOp::UDF, off.v); }
+	static inline uint16_t svc    (Imm<8> imm) { return fmtBranchSvc(BranchOp::SVC, imm.v); }
+
+	static inline uint16_t b(Ioff<1, 11> imm) { return 0b11100'00000000000 | imm.v; }
+
+	static inline uint16_t bkpt(Imm<8> imm) { return 0b10111110'00000000 | imm.v; }
+
+	static inline uint16_t cpsie() { return fmtNoArg(NoArgOp::CPSIE); }
+	static inline uint16_t cpsid() { return fmtNoArg(NoArgOp::CPSID); }
+	static inline uint16_t nop()   { return fmtNoArg(NoArgOp::NOP); }
+	static inline uint16_t yield() { return fmtNoArg(NoArgOp::YIELD); }
+	static inline uint16_t wfe()   { return fmtNoArg(NoArgOp::WFE); }
+	static inline uint16_t wfi()   { return fmtNoArg(NoArgOp::WFI); }
+	static inline uint16_t sev()   { return fmtNoArg(NoArgOp::SEV); }
 };
 
 #endif /* JIT_ARMV6_H_ */
