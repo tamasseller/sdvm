@@ -60,7 +60,7 @@ struct ArmV6
 
 		inline Ioff() = default;
 		inline Ioff(const Ioff&) = default;
-		Ioff(int16_t v): v(v >> a) {
+		Ioff(int16_t v): v((v >> a) & ~(-1 << n)) {
 			assert((v & ~(-1 << a)) == 0);
 			assert(-(1 << (n + a - 1)) <= v && v < (1 << (n + a - 1)));
 		}
@@ -354,6 +354,36 @@ public:
 	static inline uint16_t wfe()   { return fmtNoArg(NoArgOp::WFE); }
 	static inline uint16_t wfi()   { return fmtNoArg(NoArgOp::WFI); }
 	static inline uint16_t sev()   { return fmtNoArg(NoArgOp::SEV); }
+
+	static inline bool getBranchIdxImm8(uint16_t isn, uint16_t &off)
+	{
+		if(isn >> 12 == 0b1101)
+		{
+			off = isn & 0xff;
+			return true;
+		}
+
+		return false;
+	}
+
+	static inline uint16_t setBranchIdxImm8(uint16_t isn, Ioff<1, 8> off) {
+		return (isn & ~0xff) | off.v;
+	}
+
+	static inline bool getBranchIdxImm11(uint16_t isn, uint16_t &off)
+	{
+		if(isn >> 11 == 0b11100)
+		{
+			off = isn & 0x07ff;
+			return true;
+		}
+
+		return false;
+	}
+
+	static inline uint16_t setBranchIdxImm11(uint16_t isn, Ioff<1, 11> off) {
+		return (isn & ~0x07ff) | off.v;
+	}
 };
 
 #endif /* JIT_ARMV6_H_ */
