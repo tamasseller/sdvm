@@ -14,7 +14,7 @@ struct ArmV6
 		inline LoReg() = default;
 		inline LoReg(const LoReg&) = default;
 		inline LoReg(uint16_t idx): idx(idx) {
-			assert(idx < 8);
+			assert(idx < 8);				// GCOV_EXCL_LINE
 		}
 	};
 
@@ -27,7 +27,7 @@ struct ArmV6
 		inline AnyReg(const LoReg& lo): idx(lo.idx) {}
 
 		inline AnyReg(uint16_t idx): idx(idx) {
-			assert(idx < 16);
+			assert(idx < 16);				// GCOV_EXCL_LINE
 		}
 	};
 
@@ -38,7 +38,7 @@ struct ArmV6
 		inline Imm() = default;
 		inline Imm(const Imm&) = default;
 		Imm(uint16_t v): v(v) {
-			assert(v < (1 << n));
+			assert(v < (1 << n));			// GCOV_EXCL_LINE
 		}
 	};
 
@@ -49,20 +49,28 @@ struct ArmV6
 		inline Uoff() = default;
 		inline Uoff(const Uoff&) = default;
 		Uoff(uint16_t v): v(v >> a) {
-			assert((v & ~(-1 << a)) == 0);
-			assert(v < (1 << (n + a)));
+			assert((v & ~(-1 << a)) == 0);	// GCOV_EXCL_LINE
+			assert(v < (1 << (n + a)));		// GCOV_EXCL_LINE
 		}
 	};
 
 	template<size_t a, size_t n>
-	struct Ioff {
+	struct Ioff
+	{
+		static constexpr auto minValue = -(1 << (n + a - 1));
+		static constexpr auto maxValue = (1 << (n + a - 1)) - 1;
+
 		uint16_t v;
+
+		static inline bool isInRange(int16_t v) {
+			return minValue <= v && v <= maxValue;
+		}
 
 		inline Ioff() = default;
 		inline Ioff(const Ioff&) = default;
 		Ioff(int16_t v): v((v >> a) & ~(-1 << n)) {
-			assert((v & ~(-1 << a)) == 0);
-			assert(-(1 << (n + a - 1)) <= v && v < (1 << (n + a - 1)));
+			assert((v & ~(-1 << a)) == 0);	// GCOV_EXCL_LINE
+			assert(isInRange(v >> a));		// GCOV_EXCL_LINE
 		}
 	};
 
@@ -314,7 +322,7 @@ public:
 
 	static inline uint16_t cmp(AnyReg n, AnyReg m)
 	{
-		assert((n.idx & 0b1000) || (m.idx & 0b1000));
+		assert((n.idx & 0b1000) || (m.idx & 0b1000));	// GCOV_EXCL_LINE
 		return fmtHiReg(HiRegOp::CMP, n.idx, m.idx);
 	}
 
@@ -340,6 +348,7 @@ public:
 	static inline uint16_t blt(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::LT,  off.v); }
 	static inline uint16_t bgt(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::GT,  off.v); }
 	static inline uint16_t ble(Ioff<1, 8> off) { return fmtBranchSvc(BranchOp::LE,  off.v); }
+
 	static inline uint16_t udf    (Imm<8> off) { return fmtBranchSvc(BranchOp::UDF, off.v); }
 	static inline uint16_t svc    (Imm<8> imm) { return fmtBranchSvc(BranchOp::SVC, imm.v); }
 
@@ -355,9 +364,13 @@ public:
 	static inline uint16_t wfi()   { return fmtNoArg(NoArgOp::WFI); }
 	static inline uint16_t sev()   { return fmtNoArg(NoArgOp::SEV); }
 
-	static inline bool getBranchIdxImm8(uint16_t isn, uint16_t &off)
+	static inline bool isCondBranch(uint16_t isn) {
+		return ((isn >> 12) == 0b1101) && (((isn >> 8) & 0b1111) < 0b1101);
+	}
+
+	static inline bool getCondBranchOffset(uint16_t isn, uint16_t &off)
 	{
-		if(isn >> 12 == 0b1101)
+		if(isCondBranch(isn))
 		{
 			off = isn & 0xff;
 			return true;
@@ -366,11 +379,11 @@ public:
 		return false;
 	}
 
-	static inline uint16_t setBranchIdxImm8(uint16_t isn, Ioff<1, 8> off) {
+	static inline uint16_t setCondBranchOffset(uint16_t isn, Ioff<1, 8> off) {
 		return (isn & ~0xff) | off.v;
 	}
 
-	static inline bool getBranchIdxImm11(uint16_t isn, uint16_t &off)
+	static inline bool getBranchOffset(uint16_t isn, uint16_t &off)
 	{
 		if(isn >> 11 == 0b11100)
 		{
@@ -381,8 +394,40 @@ public:
 		return false;
 	}
 
-	static inline uint16_t setBranchIdxImm11(uint16_t isn, Ioff<1, 11> off) {
+	static inline uint16_t setBranchOffset(uint16_t isn, Ioff<1, 11> off) {
 		return (isn & ~0x07ff) | off.v;
+	}
+
+	enum class Condition: uint16_t
+	{
+		EQ  = 0b0000,
+		NE  = 0b0001,
+		HS  = 0b0010,
+		LO  = 0b0011,
+		MI  = 0b0100,
+		PL  = 0b0101,
+		VS  = 0b0110,
+		VC  = 0b0111,
+		HI  = 0b1000,
+		LS  = 0b1001,
+		GE  = 0b1010,
+		LT  = 0b1011,
+		GT  = 0b1100,
+		LE  = 0b1101
+	};
+
+	static inline Condition inverse(Condition c) {
+		assert(c <= Condition::LE);	// GCOV_EXCL_LINE
+		return Condition(((uint8_t)c) ^ 0b0001);
+	}
+
+	static inline Condition getBranchCondtion(uint16_t isn) {
+		assert(isCondBranch(isn));	// GCOV_EXCL_LINE
+		return Condition((isn >> 8) & 0b1111);
+	}
+
+	static inline uint16_t condBranch(Condition c, Ioff<1, 8> off) {
+		return fmtBranchSvc((BranchOp)((uint16_t)BranchOp::EQ | ((uint16_t)c << 8)), off.v);
 	}
 };
 
