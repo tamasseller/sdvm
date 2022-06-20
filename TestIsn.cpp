@@ -100,7 +100,7 @@ TEST(Isn, Imm8)
 	CHECK(ArmV6::strSp(r4, ArmV6::Uoff<2, 8>(680)) == 0x94aa); // str  r4, [sp, #680]
 	CHECK(ArmV6::ldrSp(r5, ArmV6::Uoff<2, 8>(720)) == 0x9db4); // ldr  r5, [sp, #720]
 	CHECK(ArmV6::ldrPc(r6, ArmV6::Uoff<2, 8>(760)) == 0x4ebe); // ldr  r6, [pc, #760]
-	CHECK(ArmV6::adr  (r7, ArmV6::Uoff<2, 8>(800)) == 0xa7c8); // add  r7, pc, #800
+	CHECK(ArmV6::addPc  (r7, ArmV6::Uoff<2, 8>(800)) == 0xa7c8); // add  r7, pc, #800
 	CHECK(ArmV6::addSp(r0, ArmV6::Uoff<2, 8>(840)) == 0xa8d2); // add  r0, sp, #840
 }
 

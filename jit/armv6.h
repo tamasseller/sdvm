@@ -312,7 +312,7 @@ public:
 	static inline uint16_t strSp(LoReg  t, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::STRSP, t.idx,  imm.v); }
 	static inline uint16_t ldrSp(LoReg  t, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::LDRSP, t.idx,  imm.v); }
 	static inline uint16_t ldrPc(LoReg  t, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::LDR,   t.idx,  imm.v); }
-	static inline uint16_t adr  (LoReg  d, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::ADR,   d.idx,  imm.v); }
+	static inline uint16_t addPc(LoReg  d, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::ADR,   d.idx,  imm.v); }
 	static inline uint16_t addSp(LoReg  d, Uoff<2, 8> imm) { return fmtImm8(Imm8Op::ADDSP, d.idx,  imm.v); }
 
 	static inline uint16_t add  (AnyReg dn, AnyReg m) { return fmtHiReg(HiRegOp::ADD, dn.idx, m.idx); }
@@ -380,6 +380,7 @@ public:
 	}
 
 	static inline uint16_t setCondBranchOffset(uint16_t isn, Ioff<1, 8> off) {
+		assert(isCondBranch(isn)); // GCOV_EXCL_LINE
 		return (isn & ~0xff) | off.v;
 	}
 
@@ -395,6 +396,7 @@ public:
 	}
 
 	static inline uint16_t setBranchOffset(uint16_t isn, Ioff<1, 11> off) {
+		assert(isn >> 11 == 0b11100); // GCOV_EXCL_LINE
 		return (isn & ~0x07ff) | off.v;
 	}
 
@@ -429,6 +431,24 @@ public:
 	static inline uint16_t condBranch(Condition c, Ioff<1, 8> off) {
 		return fmtBranchSvc((BranchOp)((uint16_t)BranchOp::EQ | ((uint16_t)c << 8)), off.v);
 	}
+
+	static inline bool getLiteralOffset(uint16_t isn, uint16_t &off)
+	{
+		const auto p5 = isn >> 11;
+		if(p5 == 0b01001 || p5 == 0b10100)
+		{
+			off = isn & 0xff;
+			return true;
+		}
+
+		return false;
+	}
+
+	static inline uint16_t setLiteralOffset(uint16_t isn, Uoff<2, 8> off) {
+		assert(isn >> 11 == 0b01001 || isn >> 11 == 0b10100); // GCOV_EXCL_LINE
+		return (isn & ~0xff) | off.v;
+	}
+
 };
 
 #endif /* JIT_ARMV6_H_ */

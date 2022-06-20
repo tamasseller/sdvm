@@ -30,7 +30,7 @@ TEST_GROUP(Asm)
 
 TEST(Asm, Straight)
 {
-	uint16_t code[5];
+	uint16_t code[6] alignas(4);
 	Assembler a(code, sizeof(code)/sizeof(code[0]), nullptr, 0);
 
 	a.emit(ArmV6::movs(r0, 16));
@@ -38,7 +38,7 @@ TEST(Asm, Straight)
 	a.emit(ArmV6::ldmia(r0, ArmV6::LoRegs{}.add(r0).add(r1)));
 	a.emit(ArmV6::add(r0, r1));
 	a.emit(ArmV6::strSp(r0, 16));
-	a.commit();
+	a.bodyDone();
 
 	CHECK(code[0] == 0x2010); // movs r0, #16
 	CHECK(code[1] == 0x4468); // add r0, sp
@@ -49,7 +49,7 @@ TEST(Asm, Straight)
 
 TEST(Asm, If)
 {
-	uint16_t code[4], *labels[1];
+	uint16_t code[4] alignas(4), *labels[1];
 	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
 
 	Assembler::Label g(0);
@@ -58,7 +58,7 @@ TEST(Asm, If)
 	a.emit(ArmV6::adds(r0, 1));
 	a.label(g);
 
-	a.commit();
+	a.bodyDone();
 
 	CHECK(code[0] == 0x4288); // cmp r0, r1
 	CHECK(code[1] == 0xd100); // bne.n 6 <g>
@@ -67,7 +67,7 @@ TEST(Asm, If)
 
 TEST(Asm, IfElse)
 {
-	uint16_t code[6], *labels[2];
+	uint16_t code[6] alignas(4), *labels[2];
 	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
 
 	Assembler::Label f(0), g(1);
@@ -79,7 +79,7 @@ TEST(Asm, IfElse)
 	a.emit(ArmV6::subs(r1, 2));
 	a.label(g);
 
-	a.commit();
+	a.bodyDone();
 
 	CHECK(code[0] == 0x4288); // cmp r0, r1
 	CHECK(code[1] == 0xd101); // bne.n 8 <f>
@@ -90,7 +90,7 @@ TEST(Asm, IfElse)
 
 TEST(Asm, Loop)
 {
-	uint16_t code[5], *labels[2];
+	uint16_t code[6] alignas(4), *labels[2];
 	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
 
 	Assembler::Label f(0), g(1);
@@ -101,7 +101,7 @@ TEST(Asm, Loop)
 	a.emit(ArmV6::b(f));
 	a.label(g);
 
-	a.commit();
+	a.bodyDone();
 
 	CHECK(code[0] == 0x4288); // cmp r0, r1
 	CHECK(code[1] == 0xd001); // beq.n 8 <g>
@@ -111,7 +111,7 @@ TEST(Asm, Loop)
 
 TEST(Asm, LongCond)
 {
-	uint16_t code[4 + 1000], *labels[2];
+	uint16_t code[1004] alignas(4), *labels[2];
 	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
 
 	Assembler::Label f(0), g(1);
@@ -126,7 +126,7 @@ TEST(Asm, LongCond)
 	a.label(g);
 	a.emit(ArmV6::bls(f));
 
-	a.commit();
+	a.bodyDone();
 
 	CHECK(code[0] == 0xd900); // bls.n 4 <t>
 	CHECK(code[1] == 0xe3e7); // b.n 7d4 <g>
@@ -140,10 +140,9 @@ TEST(Asm, LongCond)
 	CHECK(code[1003] == 0xe413); // b.n 0 <f>
 }
 
-
 TEST(Asm, MixCondLength)
 {
-	uint16_t code[1 + 4 * 2 + 300], *labels[4];
+	uint16_t code[310] alignas(4), *labels[4];
 	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
 
 	Assembler::Label l(0), m(1), n(2), o(3);
@@ -163,7 +162,7 @@ TEST(Asm, MixCondLength)
 	a.emit(ArmV6::bls(l));
 	a.label(o);
 
-	a.commit();
+	a.bodyDone();
 
 	CHECK(code[0] == 0xd801); // bhi.n 6 <m>
 	CHECK(code[1] == 0xd100); // bne.n 6 <m>
@@ -178,4 +177,52 @@ TEST(Asm, MixCondLength)
 	CHECK(code[304] == 0xd401); // bmi.n 266 <o>
 	CHECK(code[305] == 0xd800); // bhi.n 266 <o>
 	CHECK(code[306] == 0xe6cc); // b.n 0 <l>
+}
+
+TEST(Asm, LiteralSane)
+{
+	uint16_t code[4] alignas(4);
+	Assembler a(code, sizeof(code) / sizeof(code[0]), nullptr, 0);
+
+	a.emit(ArmV6::ldrPc(r0, Assembler::Literal(0)));
+	a.bodyDone();
+	a.literal(0xb16b00b5);
+
+	CHECK(code[0] == 0x4800); // ldr r0, [pc, #0] ; (4 <a>)
+	CHECK(code[1] == 0xbf00); // nop
+	CHECK(code[2] == 0x00b5); // .word	0xb16b00b5
+	CHECK(code[3] == 0xb16b);
+
+}
+
+TEST(Asm, ManyLiterals)
+{
+	uint16_t code[12] alignas(4);
+	Assembler a(code, sizeof(code) / sizeof(code[0]), nullptr, 0);
+
+	Assembler::Literal la(0), lb(1);
+	a.emit(ArmV6::addPc(r0, la));
+	a.emit(ArmV6::ldrPc(r1, lb));
+	a.emit(ArmV6::ldrPc(r2, la));
+	a.emit(ArmV6::addPc(r3, la));
+	a.emit(ArmV6::addPc(r4, lb));
+	a.emit(ArmV6::ldrPc(r5, la));
+	a.emit(ArmV6::ldrPc(r6, lb));
+	a.emit(ArmV6::addPc(r7, lb));
+	a.bodyDone();
+	a.literal(0xb16b00b5);
+	a.literal(0x1337c0de);
+
+	CHECK(code[0] == 0xa003);  // add r0, pc, #12 ; (adr r0, 10 <a>)
+	CHECK(code[1] == 0x4904);  // ldr r1, [pc, #16] ; (14 <b>)
+	CHECK(code[2] == 0x4a02);  // ldr r2, [pc, #8] ; (10 <a>)
+	CHECK(code[3] == 0xa302);  // add r3, pc, #8 ; (adr r3, 10 <a>)
+	CHECK(code[4] == 0xa402);  // add r4, pc, #8 ; (adr r4, 14 <b>)
+	CHECK(code[5] == 0x4d01);  // ldr r5, [pc, #4] ; (10 <a>)
+	CHECK(code[6] == 0x4e01);  // ldr r6, [pc, #4] ; (14 <b>)
+	CHECK(code[7] == 0xa701);  // add r7, pc, #4 ; (adr r7, 14 <b>)
+	CHECK(code[8] == 0x00b5);  // .word 0xb16b00b5
+	CHECK(code[9] == 0xb16b);  //
+	CHECK(code[10] == 0xc0de); // .word 0x1337c0de
+	CHECK(code[11] == 0x1337); //
 }
