@@ -432,10 +432,15 @@ public:
 		return fmtBranchSvc((BranchOp)((uint16_t)BranchOp::EQ | ((uint16_t)c << 8)), off.v);
 	}
 
-	static inline bool getLiteralOffset(uint16_t isn, uint16_t &off)
+	static inline bool isLiteralAccess(uint16_t isn)
 	{
 		const auto p5 = isn >> 11;
-		if(p5 == 0b01001 || p5 == 0b10100)
+		return (p5 == 0b01001 || p5 == 0b10100);
+	}
+
+	static inline bool getLiteralOffset(uint16_t isn, uint16_t &off)
+	{
+		if(isLiteralAccess(isn))
 		{
 			off = isn & 0xff;
 			return true;
@@ -445,10 +450,9 @@ public:
 	}
 
 	static inline uint16_t setLiteralOffset(uint16_t isn, Uoff<2, 8> off) {
-		assert(isn >> 11 == 0b01001 || isn >> 11 == 0b10100); // GCOV_EXCL_LINE
+		assert(isLiteralAccess(isn)); // GCOV_EXCL_LINE
 		return (isn & ~0xff) | off.v;
 	}
-
 };
 
 #endif /* JIT_ARMV6_H_ */

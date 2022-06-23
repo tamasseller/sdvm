@@ -22,7 +22,7 @@ static constexpr const struct Func { const uint16_t* begin, *end; } sources[] =
 	{&g, &gEnd}
 };
 
-extern "C" void jit(uint16_t** fnTabEntry)
+extern "C" uint16_t** jit(uint16_t** fnTabEntry)
 {
 	const auto idx = fnTabEntry - fnTab;
 
@@ -35,4 +35,6 @@ extern "C" void jit(uint16_t** fnTabEntry)
 	{
 		*ptr++ = *src++;
 	}
+
+	return fnTabEntry;
 }

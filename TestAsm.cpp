@@ -192,7 +192,6 @@ TEST(Asm, LiteralSane)
 	CHECK(code[1] == 0xbf00); // nop
 	CHECK(code[2] == 0x00b5); // .word	0xb16b00b5
 	CHECK(code[3] == 0xb16b);
-
 }
 
 TEST(Asm, ManyLiterals)

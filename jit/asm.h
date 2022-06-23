@@ -4,16 +4,20 @@
 #include "jit/armv6.h"
 
 /**
- * Minimal assembler for ARMv6-M code generation, it does:
+ * Minimal function assembler for ARMv6-M code generation, it does:
  *
  *  - local jump target tracking and linking;
- *  - literal pool offset tracking and linking;
+ *  - literal pool offset tracking and linking for a single literal pool;
  *  - automatic (transparent) conditional branch rewriting based on target
  *    offset width, a b<cond> <label> instructions may become:
  *    - a single instruction as-is for small offsets: b<cond> <offset> or
  *    - a two instruction sequence for longer jumps:
  *      1. b<!cond> <after-the-next> and then
  *      2. b <offset>.
+ *
+ *  Limitations:
+ *   - max. local branch distance is +-2k
+ *   - max. literal offset is 1k.
  */
 struct Assembler
 {

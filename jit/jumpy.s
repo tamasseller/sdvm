@@ -3,13 +3,13 @@
 
 .global jit, startVm
 
-.set vmTabOffsEnterNonLeaf, 0 << 2
-.set vmTabOffsLeaveNonLeaf, 1 << 2
-.set vmTabOffsResume,       2 << 2
-.set vmTabOffsJit,          3 << 2
+.set vmTabShift, 15
 
-.set resumeOffset, 8
-.set startOffset,  14
+.set vmTabIdxEnterNonLeaf, 0
+.set vmTabIdxLeaveNonLeaf, 1
+
+.set resumeOffset, 6
+.set startOffset,  8
 
 # Before:
 #  - r0, r1: forwarded args
@@ -18,18 +18,19 @@
 #  - r0, r1: forwarded args (unchanged)
 #  - r2, r3: clobbered
 #  - pc: target address
+.balign 2
 vmDispatch:
-    ldr r3, =vmTab
-    ldr r3, [r3, r2]
-    bx r3
-vmTab:
-    .long enterNonLeaf
-    .long leaveNonLeaf
-    .long resume
-    .long jit
+    mov r1, lr
+    subs r1, 1
+    ldrh r1, [r1]
+    lsrs r2, r1, vmTabShift
+    lsls r2, 1
+    add pc, r2
+    nop
+    b.n enterNonLeaf
+    b.n leaveNonLeaf
 
 # Before
-#   - r0:  orig lr (actual return address)
 #   - r1:  calleeIdx
 #   - r11: &fntab[callerIdx]
 # After
@@ -43,22 +44,22 @@ enterNonLeaf:
     # compute caller offset
     mov r2, r11
     ldr r3, [r2]
-    rsbs r3, r3, 0
-    add r3, r0
+    adds r3, 10
+    subs r3, r0, r3
 
     # store caller offset and &fntab[callerIdx]
     push {r2, r3}
 
     # put &fntab[callee] in r11
-    lsls r1, 2
+    lsls r1, (32 - vmTabShift + 2)
+    lsrs r1, (32 - vmTabShift)
     add r1, r10
     mov r11, r1
 
-    #adjust lr to skip resume
-    mov r0, lr
-    adds r0, startOffset - resumeOffset
-    bx r0
-
+    # adjust orig lr
+    movs r1, 4
+    add r1, lr
+    bx r1
 
 # Before
 #   - stack[-2] = caller offset
@@ -73,54 +74,39 @@ leaveNonLeaf:
     # load and restore caller offset and &fntab[callerIdx] in r11 and lr
     pop {r0, r1}
     mov r11, r0
-    mov lr, r1
 
-    # jump into resume header
     ldr r0, [r0]
     adds r0, resumeOffset
+
+    mov lr, r1
     bx r0
 
-# Before
-#   - r0: resume offset
-#   - lr: start of code
-# After
-#   - jump to correct offset
-#
-.thumb_func
-resume:
-    subs r0, startOffset
-    add lr, r0
-    bx lr
-
 .macro jitdFuncHeader fnIdx
+.balign 4
 .thumb_func
 entry\fnIdx:
     mov r0, lr
-    movs r1, \fnIdx
-    movs r2, vmTabOffsEnterNonLeaf
     blx r9
+    .short (vmTabIdxEnterNonLeaf << vmTabShift) | \fnIdx
 
 Lresume\fnIdx:
-    mov r0, lr
-    movs r2, vmTabOffsResume
-    blx r9
+    add pc, lr
 
 Lstart\fnIdx:
 
-.if Lresume\fnIdx - Lentry\fnIdx != resumeOffset
-# || Lstart\fnIdx - Lentry\fnIdx != LstartOffset
+.if Lresume\fnIdx - entry\fnIdx != resumeOffset
 .err
 .endif
 .endm
 
 .macro jitdFuncFooter
 .thumb_func
-    movs r2, vmTabOffsLeaveNonLeaf
     blx r9
+    .short vmTabIdxLeaveNonLeaf << vmTabShift
 
 .endm
 
-.macro jitdCall callerFnIdx calleeFnIdx
+.macro jitdCall calleeFnIdx
 .thumb_func
     movs r0, \calleeFnIdx << 2
     add r0, r10
@@ -143,6 +129,7 @@ startVm:
     # fill fntab with jitEntry (except the last one)
     mov r2, r0
     ldr r3, =(jitEntry +1)
+
 L0:
     subs r1, 1
     beq L1
@@ -159,32 +146,28 @@ L1:
     mov r11, r2
 
     # initialize lr value (for clarity)
-    adds r3, startOffset
+    adds r3, 0
     mov lr, r3
 
-# Intenitional no break
+# Intentional no break
 
 jitEntry:
-    mov r4, r0
-    movs r5, 0
+    movs r4, 0
     b jitInvoke
     nop
+
 jitResume:
-    mov r4, r11
-    movs r5, resumeOffset
+    mov r0, r11
+    movs r4, resumeOffset
 
 jitInvoke:
-    mov r0, r4
+    mov r5, lr
+    bl jit
 
-    push {lr}
-    movs r2, vmTabOffsJit
-    blx r9
+    ldr r0, [r0]
+    add r0, r4
 
-    pop {r0}
-    mov lr, r0
-
-    ldr r0, [r4]
-    add r0, r5
+    mov lr, r5
     bx r0
 .if jitResume - jitEntry != resumeOffset
 .err
@@ -204,7 +187,7 @@ jitdFuncHeader 0
 Lloop:
     push {r1}
     push {r1}
-    jitdCall 0, 1
+    jitdCall 1
     pop {r0, r1}
     adds r0, '0'
     ldr r2, =0x4000C000
