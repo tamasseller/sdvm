@@ -1,6 +1,6 @@
 #include "TestUtils.h"
 
-#include "jit/asm.h"
+#include "jit/Assembler.h"
 
 TEST_GROUP(Asm)
 {
@@ -38,7 +38,7 @@ TEST(Asm, Straight)
 	a.emit(ArmV6::ldmia(r0, ArmV6::LoRegs{}.add(r0).add(r1)));
 	a.emit(ArmV6::add(r0, r1));
 	a.emit(ArmV6::strSp(r0, 16));
-	a.bodyDone();
+	a.assemble();
 
 	CHECK(code[0] == 0x2010); // movs r0, #16
 	CHECK(code[1] == 0x4468); // add r0, sp
@@ -49,16 +49,17 @@ TEST(Asm, Straight)
 
 TEST(Asm, If)
 {
-	uint16_t code[4] alignas(4), *labels[1];
+	uint16_t code[4] alignas(4);
+	Assembler::LabelInfo labels[1];
 	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
 
 	Assembler::Label g(0);
 	a.emit(ArmV6::cmp(r0, r1));
 	a.emit(ArmV6::bne(g));
 	a.emit(ArmV6::adds(r0, 1));
-	a.label(g);
+	a.pin(g);
 
-	a.bodyDone();
+	a.assemble();
 
 	CHECK(code[0] == 0x4288); // cmp r0, r1
 	CHECK(code[1] == 0xd100); // bne.n 6 <g>
@@ -67,7 +68,8 @@ TEST(Asm, If)
 
 TEST(Asm, IfElse)
 {
-	uint16_t code[6] alignas(4), *labels[2];
+	uint16_t code[6] alignas(4);
+	Assembler::LabelInfo labels[2];
 	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
 
 	Assembler::Label f(0), g(1);
@@ -75,11 +77,11 @@ TEST(Asm, IfElse)
 	a.emit(ArmV6::bne(f));
 	a.emit(ArmV6::adds(r0, 1));
 	a.emit(ArmV6::b(g));
-	a.label(f);
+	a.pin(f);
 	a.emit(ArmV6::subs(r1, 2));
-	a.label(g);
+	a.pin(g);
 
-	a.bodyDone();
+	a.assemble();
 
 	CHECK(code[0] == 0x4288); // cmp r0, r1
 	CHECK(code[1] == 0xd101); // bne.n 8 <f>
@@ -90,18 +92,19 @@ TEST(Asm, IfElse)
 
 TEST(Asm, Loop)
 {
-	uint16_t code[6] alignas(4), *labels[2];
+	uint16_t code[6] alignas(4);
+	Assembler::LabelInfo labels[2];
 	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
 
 	Assembler::Label f(0), g(1);
-	a.label(f);
+	a.pin(f);
 	a.emit(ArmV6::cmp(r0, r1));
 	a.emit(ArmV6::beq(g));
 	a.emit(ArmV6::adds(r0, 1));
 	a.emit(ArmV6::b(f));
-	a.label(g);
+	a.pin(g);
 
-	a.bodyDone();
+	a.assemble();
 
 	CHECK(code[0] == 0x4288); // cmp r0, r1
 	CHECK(code[1] == 0xd001); // beq.n 8 <g>
@@ -111,11 +114,12 @@ TEST(Asm, Loop)
 
 TEST(Asm, LongCond)
 {
-	uint16_t code[1004] alignas(4), *labels[2];
+	uint16_t code[1004] alignas(4);
+	Assembler::LabelInfo labels[2];
 	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
 
 	Assembler::Label f(0), g(1);
-	a.label(f);
+	a.pin(f);
 	a.emit(ArmV6::bhi(g));
 
 	for(int i = 0; i < 1000; i++)
@@ -123,10 +127,10 @@ TEST(Asm, LongCond)
 		a.emit(ArmV6::lsls(r0, r0, 0));
 	}
 
-	a.label(g);
+	a.pin(g);
 	a.emit(ArmV6::bls(f));
 
-	a.bodyDone();
+	a.assemble();
 
 	CHECK(code[0] == 0xd900); // bls.n 4 <t>
 	CHECK(code[1] == 0xe3e7); // b.n 7d4 <g>
@@ -142,14 +146,15 @@ TEST(Asm, LongCond)
 
 TEST(Asm, MixCondLength)
 {
-	uint16_t code[310] alignas(4), *labels[4];
+	uint16_t code[310] alignas(4);
+	Assembler::LabelInfo labels[4];
 	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
 
 	Assembler::Label l(0), m(1), n(2), o(3);
-	a.label(l);
+	a.pin(l);
 	a.emit(ArmV6::bhi(m));
 	a.emit(ArmV6::beq(n));
-	a.label(m);
+	a.pin(m);
 	a.emit(ArmV6::b(m));
 
 	for(int i = 0; i < 300; i++)
@@ -157,12 +162,12 @@ TEST(Asm, MixCondLength)
 		a.emit(ArmV6::lsls(r0, r0, 0));
 	}
 
-	a.label(n);
+	a.pin(n);
 	a.emit(ArmV6::bmi(o));
 	a.emit(ArmV6::bls(l));
-	a.label(o);
+	a.pin(o);
 
-	a.bodyDone();
+	a.assemble();
 
 	CHECK(code[0] == 0xd801); // bhi.n 6 <m>
 	CHECK(code[1] == 0xd100); // bne.n 6 <m>
@@ -185,7 +190,7 @@ TEST(Asm, LiteralSane)
 	Assembler a(code, sizeof(code) / sizeof(code[0]), nullptr, 0);
 
 	a.emit(ArmV6::ldrPc(r0, a.literal(0xb16b00b5)));
-	a.bodyDone();
+	a.assemble();
 
 	CHECK(code[0] == 0x4800); // ldr r0, [pc, #0] ; (4 <a>)
 	CHECK(code[1] == 0xbf00); // nop
@@ -207,7 +212,7 @@ TEST(Asm, ManyLiteralsDeduplicate)
 	a.emit(ArmV6::ldrPc(r5, a.literal(0xb16b00b5)));
 	a.emit(ArmV6::ldrPc(r6, a.literal(0x1337c0de)));
 	a.emit(ArmV6::addPc(r7, a.literal(0x1337c0de)));
-	a.bodyDone();
+	a.assemble();
 
 	CHECK(code[0] == 0xa003);  // add r0, pc, #12 ; (adr r0, 10 <a>)
 	CHECK(code[1] == 0x4904);  // ldr r1, [pc, #16] ; (14 <b>)
@@ -231,7 +236,7 @@ TEST(Asm, MultipleLiteralsNoRoomOdd)
 	a.emit(ArmV6::ldrPc(r0, a.literal(0x1337c0de)));
 	a.emit(ArmV6::ldrPc(r1, a.literal(0xb16b00b5)));
 	a.emit(ArmV6::addPc(r2, a.literal(0x600df00d)));
-	a.bodyDone();
+	a.assemble();
 
 	CHECK(code[0] == 0x4801); // ldr r0, [pc, #4] ; (8 <a>)
 	CHECK(code[1] == 0x4902); // ldr r1, [pc, #8] ; (c <b>)
@@ -254,7 +259,7 @@ TEST(Asm, MultipleLiteralsNoRoomEven)
 	a.emit(ArmV6::ldrPc(r1, a.literal(0xb16b00b5)));
 	a.emit(ArmV6::addPc(r2, a.literal(0x600df00d)));
 	a.emit(ArmV6::addPc(r3, a.literal(0xfeedbabe)));
-	a.bodyDone();
+	a.assemble();
 
 	CHECK(code[0]  == 0x4801); // ldr r0, [pc, #4] ; (8 <a>)
 	CHECK(code[1]  == 0x4902); // ldr r1, [pc, #8] ; (c <b>)
