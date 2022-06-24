@@ -181,12 +181,11 @@ TEST(Asm, MixCondLength)
 
 TEST(Asm, LiteralSane)
 {
-	uint16_t code[4] alignas(4);
+	uint16_t code[6] alignas(4);
 	Assembler a(code, sizeof(code) / sizeof(code[0]), nullptr, 0);
 
-	a.emit(ArmV6::ldrPc(r0, Assembler::Literal(0)));
+	a.emit(ArmV6::ldrPc(r0, a.literal(0xb16b00b5)));
 	a.bodyDone();
-	a.literal(0xb16b00b5);
 
 	CHECK(code[0] == 0x4800); // ldr r0, [pc, #0] ; (4 <a>)
 	CHECK(code[1] == 0xbf00); // nop
@@ -194,23 +193,21 @@ TEST(Asm, LiteralSane)
 	CHECK(code[3] == 0xb16b);
 }
 
-TEST(Asm, ManyLiterals)
+
+TEST(Asm, ManyLiteralsDeduplicate)
 {
-	uint16_t code[12] alignas(4);
+	uint16_t code[20] alignas(4);
 	Assembler a(code, sizeof(code) / sizeof(code[0]), nullptr, 0);
 
-	Assembler::Literal la(0), lb(1);
-	a.emit(ArmV6::addPc(r0, la));
-	a.emit(ArmV6::ldrPc(r1, lb));
-	a.emit(ArmV6::ldrPc(r2, la));
-	a.emit(ArmV6::addPc(r3, la));
-	a.emit(ArmV6::addPc(r4, lb));
-	a.emit(ArmV6::ldrPc(r5, la));
-	a.emit(ArmV6::ldrPc(r6, lb));
-	a.emit(ArmV6::addPc(r7, lb));
+	a.emit(ArmV6::addPc(r0, a.literal(0xb16b00b5)));
+	a.emit(ArmV6::ldrPc(r1, a.literal(0x1337c0de)));
+	a.emit(ArmV6::ldrPc(r2, a.literal(0xb16b00b5)));
+	a.emit(ArmV6::addPc(r3, a.literal(0xb16b00b5)));
+	a.emit(ArmV6::addPc(r4, a.literal(0x1337c0de)));
+	a.emit(ArmV6::ldrPc(r5, a.literal(0xb16b00b5)));
+	a.emit(ArmV6::ldrPc(r6, a.literal(0x1337c0de)));
+	a.emit(ArmV6::addPc(r7, a.literal(0x1337c0de)));
 	a.bodyDone();
-	a.literal(0xb16b00b5);
-	a.literal(0x1337c0de);
 
 	CHECK(code[0] == 0xa003);  // add r0, pc, #12 ; (adr r0, 10 <a>)
 	CHECK(code[1] == 0x4904);  // ldr r1, [pc, #16] ; (14 <b>)
@@ -224,4 +221,51 @@ TEST(Asm, ManyLiterals)
 	CHECK(code[9] == 0xb16b);  //
 	CHECK(code[10] == 0xc0de); // .word 0x1337c0de
 	CHECK(code[11] == 0x1337); //
+}
+
+TEST(Asm, MultipleLiteralsNoRoomOdd)
+{
+	uint16_t code[10] alignas(4);
+	Assembler a(code, sizeof(code) / sizeof(code[0]), nullptr, 0);
+
+	a.emit(ArmV6::ldrPc(r0, a.literal(0x1337c0de)));
+	a.emit(ArmV6::ldrPc(r1, a.literal(0xb16b00b5)));
+	a.emit(ArmV6::addPc(r2, a.literal(0x600df00d)));
+	a.bodyDone();
+
+	CHECK(code[0] == 0x4801); // ldr r0, [pc, #4] ; (8 <a>)
+	CHECK(code[1] == 0x4902); // ldr r1, [pc, #8] ; (c <b>)
+	CHECK(code[2] == 0xa202); // add r2, pc, #8 ; (adr r2, 10 <c>)
+	CHECK(code[3] == 0xbf00); // nop
+	CHECK(code[4] == 0xc0de); // .word 0x1337c0de
+	CHECK(code[5] == 0x1337); //
+	CHECK(code[6] == 0x00b5); // .word 0xb16b00b5
+	CHECK(code[7] == 0xb16b); //
+	CHECK(code[8] == 0xf00d); // .word 0x600df00d
+	CHECK(code[9] == 0x600d); //
+}
+
+TEST(Asm, MultipleLiteralsNoRoomEven)
+{
+	uint16_t code[12] alignas(4);
+	Assembler a(code, sizeof(code) / sizeof(code[0]), nullptr, 0);
+
+	a.emit(ArmV6::ldrPc(r0, a.literal(0x1337c0de)));
+	a.emit(ArmV6::ldrPc(r1, a.literal(0xb16b00b5)));
+	a.emit(ArmV6::addPc(r2, a.literal(0x600df00d)));
+	a.emit(ArmV6::addPc(r3, a.literal(0xfeedbabe)));
+	a.bodyDone();
+
+	CHECK(code[0]  == 0x4801); // ldr r0, [pc, #4] ; (8 <a>)
+	CHECK(code[1]  == 0x4902); // ldr r1, [pc, #8] ; (c <b>)
+	CHECK(code[2]  == 0xa202); // add r2, pc, #8 ; (adr r2, 10 <c>)
+	CHECK(code[3]  == 0xa303); // add r3, pc, #12 ; (adr r3, 14 <d>)
+	CHECK(code[4]  == 0xc0de); // .word 0x1337c0de
+	CHECK(code[5]  == 0x1337); //
+	CHECK(code[6]  == 0x00b5); // .word 0xb16b00b5
+	CHECK(code[7]  == 0xb16b); //
+	CHECK(code[8]  == 0xf00d); // .word 0x600df00d
+	CHECK(code[9]  == 0x600d); //
+	CHECK(code[10] == 0xbabe); // .word 0cfeedbabe
+	CHECK(code[11] == 0xfeed); //
 }

@@ -25,6 +25,7 @@ struct Assembler
 
 	// Instruction stream pointers.
 	uint16_t *const startIsns, *nextIsn, *const endIsns;
+	uint32_t *firstLiteral;
 
 	// Jump target storage
 	uint16_t **const labels;
@@ -40,12 +41,12 @@ struct Assembler
 	}
 
 	/// TODO TBD
-	inline uintptr_t getLiteralOffset(uint16_t *pInstr, uint16_t *pool) const
+	inline uintptr_t getLiteralOffset(uint16_t *pInstr, uint32_t *lit) const
 	{
-		assert(pInstr < pool);
+		assert(pInstr < (void*)lit);
 
 		// The offset needs to be calculated against the word-aligned PC (which is the current instruction plus 4 bytes).
-		return (uintptr_t)((char*)pool - (char*)(((uintptr_t)pInstr + 4) & ~3));
+		return (uintptr_t)((char*)lit - (char*)(((uintptr_t)pInstr + 4) & ~3));
 	}
 
 public:
@@ -58,7 +59,8 @@ public:
 	 * _nLabels_ is the number of 32-bit pointers that the label storage area can hold (used for space checking).
 	 */
 	inline Assembler(uint16_t *firstIsn, uint16_t nIsns, uint16_t **firstLabel, uint8_t nLabels):
-		startIsns(firstIsn), nextIsn(startIsns), endIsns(startIsns + nIsns), labels(firstLabel), nLabels(nLabels)
+		startIsns(firstIsn), nextIsn(startIsns), firstLiteral((uint32_t*)(startIsns + nIsns)), endIsns(startIsns + nIsns),
+		labels(firstLabel), nLabels(nLabels)
 	{
 		// The highest label index is reserved for marking long conditional jump rewrites.
 		assert(nLabels < skipNextSpecialLabelIdx); // GCOV_EXCL_LINE
@@ -90,7 +92,8 @@ public:
 
 	/**
 	 * Helper used in place of the offset for emitting PC-relative literal loads (LDR)
-	 * and address generation (ADR).
+	 * and address generation (ADR). The indices stored in here are rewritten to actual
+	 * PC-relative offsets once those are known.
 	 */
 	struct Literal
 	{
@@ -98,7 +101,7 @@ public:
 		uint8_t idx;
 
 		// Each label needs to have a unique index.
-		inline Literal(uint8_t idx): idx(idx) {}
+		inline Literal(uint8_t idx): idx(idx) {}		// TODO make private
 
 		// Conversion that enables use for provisional inline encoding of literal load targets.
 		operator ArmV6::Uoff<2, 8> () const {
@@ -116,7 +119,7 @@ public:
 	 */
 	inline void emit(uint16_t isn)
 	{
-		assert(nextIsn < endIsns);	// GCOV_EXCL_LINE
+		assert((void*)nextIsn < (void*)firstLiteral);	// GCOV_EXCL_LINE
 
 		*nextIsn++ = isn;
 
@@ -143,7 +146,7 @@ public:
 	}
 
 	/**
-	 * Rewrite and link local branches and fix literal load (and address generation) offsets.
+	 * Rewrite and link local branches and move literal pool and fill in offsets for loads (and address generation).
 	 *
 	 * Before calling this all labels referenced by emitted instruction must be pinned using the _label_ method.
 	 * After calling this no more instructions should be emitted.
@@ -168,7 +171,7 @@ public:
 			// Check conditional branches if the offset fits in the 8bit immediate field.
 			if(ArmV6::getCondBranchOffset(isn, idx))
 			{
-				assert((i + 1) < endIsns && i[1] == ArmV6::nop());	// GCOV_EXCL_LINE
+				assert((i + 1) < (void*)firstLiteral && i[1] == ArmV6::nop());	// GCOV_EXCL_LINE
 				assert(idx < 256);	// GCOV_EXCL_LINE
 
 				// There is another deliberately missed optimization opportunity here: if the offset is positive,
@@ -213,7 +216,7 @@ public:
 		nextIsn = o;
 
 		// Calculate word-aligned start address of literal pool.
-		auto pool = (uint16_t *)(((uintptr_t)nextIsn + 3) & ~3);
+		auto poolStart = (uint32_t *)(((uintptr_t)nextIsn + 3) & ~3);
 
 		// Fill in branch and literal offsets
 		for(uint16_t *p = startIsns; p != nextIsn; p++)
@@ -221,7 +224,7 @@ public:
 			const auto isn = *p;
 			uint16_t idx;
 
-			// Update conditional branch targets via lookup
+			// Update conditional branch targets using label offset from the table.
 			if(ArmV6::getCondBranchOffset(isn, idx))
 			{
 				// Check if it is a re-written long conditional.
@@ -234,47 +237,87 @@ public:
 					*p = ArmV6::setCondBranchOffset(isn, getBranchOffset(p, idx));
 				}
 			}
-			// Update unconditional branch targets via lookup
+			// Update unconditional branch targets using label offset from the table.
 			else if(ArmV6::getBranchOffset(isn, idx))
 			{
 				assert(idx != skipNextSpecialLabelIdx); // GCOV_EXCL_LINE
 				*p = ArmV6::setBranchOffset(isn, getBranchOffset(p, idx));
 			}
-			// Update unconditional branch targets via lookup
+			// Update offset for literal load/address generation.
 			else if(ArmV6::getLiteralOffset(isn, idx))
 			{
-				*p = ArmV6::setLiteralOffset(isn, getLiteralOffset(p, pool) + (idx << 2));
+				*p = ArmV6::setLiteralOffset(isn, getLiteralOffset(p, poolStart + idx));
 			}
 		}
 
 		// Nop out padding between last instruction and literal pool if there is any.
-		if(nextIsn != pool)
+		if(nextIsn != (void*)poolStart)
 		{
-			assert(nextIsn < endIsns); // GCOV_EXCL_LINE
+			assert(nextIsn < (void*)firstLiteral); // GCOV_EXCL_LINE
 			*nextIsn++ = ArmV6::nop();
 		}
 
-		assert(nextIsn == pool); // GCOV_EXCL_LINE
+		assert(nextIsn == (void*)poolStart); // GCOV_EXCL_LINE
+
+		// Move literals right after body and reverse their order while doing so in order to
+		// get the ones added earlier slightly closer to the instructions that are referencing
+		// them. This is a very slight improvement compared to directly copying in the same
+		// order, however if there is enough room reversing is just as easy as not reversing,
+		// and it is not too complicated even if the final location of the pool overlaps the
+		// temporary site at the end of the output area (which is supposed to be rare anyway).
+		uint32_t * const poolEnd = poolStart + ((uint32_t*)endIsns - firstLiteral);
+
+		// Check if there is room (probable)
+		if(poolEnd < firstLiteral)
+		{
+			const uint32_t *i = (const uint32_t*)endIsns;
+			for(uint32_t *p = poolStart; p != poolEnd; p++)
+			{
+				*p = *--i;
+			}
+		}
+		else
+		{
+			// If the final pool and the reversed collection at the end overlap, it first have
+			// to be moved to the end of the body in order.
+			const uint32_t *i = (const uint32_t*)firstLiteral;
+			for(uint32_t *p = poolStart; p != poolEnd; p++)
+			{
+				*p = *i++;
+			}
+
+			// Then the order needs to be reversed in place.
+			for(uint32_t *a = poolStart, *b = poolEnd - 1; a < b; a++, b--)
+			{
+				auto t = *a;
+				*a = *b;
+				*b = t;
+			}
+		}
+
 	}
 
 	/**
-	 * Fill in consecutive literal values in the literal pool of the function.
+	 * Collect literals at the very end of the output area, return index for future reference.
 	 *
-	 * This must only be called after _bodyDone_.
-	 *
-	 * NOTE: It is not checked, it is crucial that all values referenced in the instruction stream
-	 * via _Literal_ instances must be defined using this method.
+	 * It looks for a duplicate before adding a new literal to eliminate useless redundancy.
 	 */
-	inline void literal(uint32_t v)
+	inline Literal literal(uint32_t v)
 	{
-		uint32_t* const p = (uint32_t*)nextIsn;
-		uint16_t* const n = (uint16_t*)(p + 1);
+		assert(((uintptr_t)firstLiteral & 3) == 0); // GCOV_EXCL_LINE
 
-		assert(((uintptr_t)nextIsn & 3) == 0); // GCOV_EXCL_LINE
-		assert(n <= endIsns); // GCOV_EXCL_LINE
+		for(auto l = firstLiteral; l != (void*)endIsns; l++)
+		{
+			if(*l == v)
+			{
+				return (uint32_t*)endIsns - l - 1;
+			}
+		}
 
-		*p = v;
-		nextIsn = n;
+		assert((void*)nextIsn < firstLiteral - 1); // GCOV_EXCL_LINE
+
+		*--firstLiteral = v;
+		return (uint32_t*)endIsns - firstLiteral - 1;
 	}
 };
 
