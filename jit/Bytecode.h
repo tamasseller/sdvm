@@ -7,7 +7,7 @@ struct Bytecode
 {
 	struct FunctionInfo
 	{
-		uint32_t nLabels;
+		uint32_t nLabels, nRet;
 		bool hasNonTailCall;
 	};
 
@@ -20,6 +20,9 @@ struct Bytecode
 			Conditional,
 			Jump,
 			Label,
+			Move,
+			Call,
+			Ret
 		};
 
 		enum class BinaryOperation
@@ -37,6 +40,16 @@ struct Bytecode
 		};
 
 		OperationGroup g;
+
+		enum class DupDirection
+		{
+			In, Out
+		};
+
+		enum class DupTarget
+		{
+			Arg, Stack
+		};
 
 		union
 		{
@@ -65,6 +78,23 @@ struct Bytecode
 			{
 				uint32_t stackAdjustment;
 			} label;
+
+			struct Move
+			{
+				DupDirection dir;
+				DupTarget target;
+				uint32_t idx;
+			} move;
+
+			struct Call
+			{
+				uint32_t nArgs, nRet;
+			} call;
+
+			struct Return
+			{
+				uint32_t nRet;
+			} ret;
 		};
 	};
 

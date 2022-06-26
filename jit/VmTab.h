@@ -1,0 +1,8 @@
+#ifndef JIT_VMTAB_H_
+#define JIT_VMTAB_H_
+
+#define VMTAB_SHIFT 15
+#define VMTAB_ENTER_NON_LEAF_INDEX 0
+#define VMTAB_LEAVE_NON_LEAF_INDEX 1
+
+#endif /* JIT_VMTAB_H_ */

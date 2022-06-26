@@ -24,6 +24,9 @@ jit.o : jit.cpp
 %.o: %.s
 	arm-none-eabi-as -mcpu=cortex-m0 -o $@ $^
 
+%.o: %.S
+	arm-none-eabi-gcc -mcpu=cortex-m0 -o $@ $^
+
 jumpy.elf : vectors.o jumpy.o jit.o
 	arm-none-eabi-g++ $(LDFLAGS) -T memmap -o $@ $^
 	

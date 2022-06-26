@@ -131,18 +131,15 @@ public:
 	 * values need to be pinned to an actual location using the _pin_ method before final
 	 * assembly.
 	 */
-	inline void emit(uint16_t isn)
+	void emit(uint16_t isn);
+
+	/**
+	 *
+	 */
+	inline void Assembler::data(uint16_t isn)
 	{
 		assert((void*)nextIsn < (void*)firstLiteral);	// GCOV_EXCL_LINE
-
 		*nextIsn++ = isn;
-
-		if(ArmV6::isCondBranch(isn))
-		{
-			// Emit a placeholder nop in case the offset is too high for imm8 and the branch
-			// needs to be rewritten, it gets removed later if not needed.
-			*nextIsn++ = ArmV6::nop();
-		}
 	}
 
 	/**

@@ -18,6 +18,8 @@ struct ArmV6
 		}
 	};
 
+
+
 	struct AnyReg
 	{
 		uint16_t idx;
@@ -326,9 +328,9 @@ public:
 		return fmtHiReg(HiRegOp::CMP, n.idx, m.idx);
 	}
 
-	static inline uint16_t pushWoLr  (LoRegs l) { return fmtPushPop(false, false, l.flags); }
+	static inline uint16_t push  (LoRegs l) { return fmtPushPop(false, false, l.flags); }
 	static inline uint16_t pushWithLr(LoRegs l) { return fmtPushPop(false, true,  l.flags); }
-	static inline uint16_t popWoPc   (LoRegs l) { return fmtPushPop(true,  false, l.flags); }
+	static inline uint16_t pop   (LoRegs l) { return fmtPushPop(true,  false, l.flags); }
 	static inline uint16_t popWithPc (LoRegs l) { return fmtPushPop(true,  true,  l.flags); }
 
 	static inline uint16_t stmia (LoReg n, LoRegs l) { return lsMia(false, n.idx, l.flags); }
@@ -400,7 +402,7 @@ public:
 		return (isn & ~0x07ff) | off.v;
 	}
 
-	enum class Condition: uint16_t
+	enum class Condition: uint16_t // TODO uint8_t ?
 	{
 		EQ  = 0b0000,
 		NE  = 0b0001,

@@ -1,12 +1,11 @@
+#include "VmTab.h"
+
 .syntax unified
 .thumb
 
 .global jit, startVm
 
-.set vmTabShift, 15
-
-.set vmTabIdxEnterNonLeaf, 0
-.set vmTabIdxLeaveNonLeaf, 1
+.set VMTAB_SHIFT, 15
 
 .set resumeOffset, 6
 .set startOffset,  8
@@ -23,7 +22,7 @@ vmDispatch:
     mov r1, lr
     subs r1, 1
     ldrh r1, [r1]
-    lsrs r2, r1, vmTabShift
+    lsrs r2, r1, VMTAB_SHIFT
     lsls r2, 1
     add pc, r2
     nop
@@ -51,8 +50,8 @@ enterNonLeaf:
     push {r2, r3}
 
     # put &fntab[callee] in r11
-    lsls r1, (32 - vmTabShift + 2)
-    lsrs r1, (32 - vmTabShift)
+    lsls r1, (32 - VMTAB_SHIFT + 2)
+    lsrs r1, (32 - VMTAB_SHIFT)
     add r1, r10
     mov r11, r1
 
@@ -87,7 +86,7 @@ leaveNonLeaf:
 entry\fnIdx:
     mov r0, lr
     blx r9
-    .short (vmTabIdxEnterNonLeaf << vmTabShift) | \fnIdx
+    .short (vmTabIdxEnterNonLeaf << VMTAB_SHIFT) | \fnIdx
 
 Lresume\fnIdx:
     add pc, lr
@@ -102,7 +101,7 @@ Lstart\fnIdx:
 .macro jitdFuncFooter
 .thumb_func
     blx r9
-    .short vmTabIdxLeaveNonLeaf << vmTabShift
+    .short vmTabIdxLeaveNonLeaf << VMTAB_SHIFT
 
 .endm
 

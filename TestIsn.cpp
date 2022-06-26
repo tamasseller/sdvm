@@ -115,9 +115,9 @@ TEST(Isn, HiReg)
 
 TEST(Isn, MultiLoadStore)
 {
-	CHECK(ArmV6::pushWoLr  (ArmV6::LoRegs{}.add(r0))                     == 0xb401); // push {r0}
+	CHECK(ArmV6::push  (ArmV6::LoRegs{}.add(r0))                     == 0xb401); // push {r0}
 	CHECK(ArmV6::pushWithLr(ArmV6::LoRegs{}.add(r1))                     == 0xb502); // push {r1, lr}
-	CHECK(ArmV6::popWoPc   (ArmV6::LoRegs{}.add(r2).add(r3))             == 0xbc0c); // pop  {r2, r3}
+	CHECK(ArmV6::pop   (ArmV6::LoRegs{}.add(r2).add(r3))             == 0xbc0c); // pop  {r2, r3}
 	CHECK(ArmV6::popWithPc (ArmV6::LoRegs{}.add(r4).add(r5))             == 0xbd30); // pop  {r4, r5, pc}
 	CHECK(ArmV6::stmia     (r6, ArmV6::LoRegs{}.add(r7))                 == 0xc680); // stmia r6!, {r7}
 	CHECK(ArmV6::ldmia     (r0, ArmV6::LoRegs{}.add(r1).add(r2))         == 0xc806); // ldmia r0!, {r1, r2}

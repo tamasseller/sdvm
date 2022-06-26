@@ -1,5 +1,19 @@
 #include "Assembler.h"
 
+void Assembler::emit(uint16_t isn)
+{
+	assert((void*)nextIsn < (void*)firstLiteral);	// GCOV_EXCL_LINE
+
+	*nextIsn++ = isn;
+
+	if(ArmV6::isCondBranch(isn))
+	{
+		// Emit a placeholder nop in case the offset is too high for imm8 and the branch
+		// needs to be rewritten, it gets removed later if not needed.
+		*nextIsn++ = ArmV6::nop();
+	}
+}
+
 uint16_t* Assembler::assemble()
 {
 	// First go through the whole body and look for conditional branches and choose between the single instruction
