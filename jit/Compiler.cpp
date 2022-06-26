@@ -19,19 +19,14 @@ static inline void summonImmediate(Assembler& a, ArmV6::LoReg target, uint32_t v
 	{
 		a.emit(ArmV6::mov(target, plan.imm));
 
-		if(plan.shift)
-		{
-			a.emit(ArmV6::lsls(target, plan.shift));
-		}
-
 		switch(plan.op)
 		{
 		case ImmediateFabricationPlan::LastOp::Add:
 			a.emit(ArmV6::adds(target, plan.param));
 			break;
 
-		case ImmediateFabricationPlan::LastOp::Sub:
-			a.emit(ArmV6::subs(target, plan.param));
+		case ImmediateFabricationPlan::LastOp::Shift:
+			a.emit(ArmV6::lsls(target, plan.param));
 			break;
 
 		case ImmediateFabricationPlan::LastOp::Not:

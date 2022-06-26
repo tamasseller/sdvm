@@ -10,7 +10,6 @@ SOURCES += TestErrorHandler.cpp
 SOURCES += TestImmediateSynth.cpp
 
 SOURCES += jit/Assembler.cpp
-SOURCES += jit/Immediate.cpp
 
 SOURCES += pet/1test/TestRunnerExperimental.cpp
 SOURCES += pet/ubiquitous/PrintfWriter.cpp
