@@ -1,6 +1,6 @@
 #include "Assembler.h"
 
-void Assembler::assemble()
+uint16_t* Assembler::assemble()
 {
 	// First go through the whole body and look for conditional branches and choose between the single instruction
 	// direct approach (if the offset is small enough to fit in the 8bit immediate field) or a two instruction
@@ -145,4 +145,6 @@ void Assembler::assemble()
 			}
 		}
 	}
+
+	return (uint16_t*)poolEnd;
 }

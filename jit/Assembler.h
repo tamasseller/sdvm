@@ -188,7 +188,7 @@ public:
 	 * Before calling this all labels referenced by emitted instruction must be pinned using the _pin_ method.
 	 * After calling this no more instructions should be emitted.
 	 */
-	void assemble();
+	uint16_t* assemble();
 };
 
 #endif /* ASSEMBLER_H_ */
