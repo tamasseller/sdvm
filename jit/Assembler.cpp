@@ -14,6 +14,19 @@ void Assembler::emit(uint16_t isn)
 	}
 }
 
+void Assembler::vmTab(uint16_t isn)
+{
+	assert((void*)nextIsn < (void*)firstLiteral);	// GCOV_EXCL_LINE
+
+	// Emit a marker udf that protects the inline data from being processed as an 
+	// instruction in the post-processing steps, when the udf itself is going to 
+	// be replaced with a "blx r9"
+	*nextIsn++ = ArmV6::udf(0);
+
+	assert((void*)nextIsn < (void*)firstLiteral);	// GCOV_EXCL_LINE
+	*nextIsn++ = isn;
+}
+
 uint16_t* Assembler::assemble()
 {
 	// First go through the whole body and look for conditional branches and choose between the single instruction
@@ -30,8 +43,15 @@ uint16_t* Assembler::assemble()
 		const auto isn = *i;
 		uint16_t idx;
 
+		// Keep udfs and inline literals associated with them intact.
+		if(isn == ArmV6::udf(0))
+		{
+			*o++ = isn;
+			assert(i < nextIsn); // GCOV_EXCL_LINE
+			*o++ = *++i;
+		}
 		// Check conditional branches if the offset fits in the 8bit immediate field.
-		if(ArmV6::getCondBranchOffset(isn, idx))
+		else if(ArmV6::getCondBranchOffset(isn, idx))
 		{
 			assert((i + 1) < (void*)firstLiteral && i[1] == ArmV6::nop());	// GCOV_EXCL_LINE
 			assert(idx < 256);	// GCOV_EXCL_LINE
@@ -80,7 +100,7 @@ uint16_t* Assembler::assemble()
 	// Calculate word-aligned start address of literal pool.
 	auto poolStart = (uint32_t *)(((uintptr_t)nextIsn + 3) & ~3);
 
-	// Fill in branch and literal offsets
+	// Fill in branch and literal offsets, replace udfs.
 	for(uint16_t *p = startIsns; p != nextIsn; p++)
 	{
 		const auto isn = *p;
@@ -109,6 +129,13 @@ uint16_t* Assembler::assemble()
 		else if(ArmV6::getLiteralOffset(isn, idx))
 		{
 			*p = ArmV6::setLiteralOffset(isn, getLiteralOffset(p, poolStart + idx));
+		}
+		// Replace udf with 'blx r9' and skip payload.
+		else if(isn == ArmV6::udf(0))
+		{
+			*p = ArmV6::blx(9);
+			assert(p < nextIsn); // GCOV_EXCL_LINE
+			p++;
 		}
 	}
 

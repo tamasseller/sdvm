@@ -274,3 +274,38 @@ TEST(Asm, MultipleLiteralsNoRoomEven)
 	CHECK(code[10] == 0xbabe); // .word 0cfeedbabe
 	CHECK(code[11] == 0xfeed); //
 }
+
+TEST(Asm, InlineLiteralAgainstBranchAndLiteral)
+{
+	uint16_t code[14] alignas(4);
+	Assembler::LabelInfo labels[2];
+	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
+
+	Assembler::Label f(0), g(1);
+	a.emit(ArmV6::b(g));
+	a.pin(f);
+	
+	a.emit(ArmV6::ldrPc(ArmV6::LoReg(0), a.literal(0x1337f00du)));
+	a.vmTab(0x0001);
+	a.vmTab(0xb800);
+	a.emit(ArmV6::adds(ArmV6::LoReg(0), ArmV6::LoReg(1), ArmV6::LoReg(2)));
+	a.vmTab(0x4800);
+
+	a.pin(g);
+	a.emit(ArmV6::bls(f));
+
+	a.assemble();
+
+	CHECK(code[0]  == 0xe007); // b.n 12 <g>
+	CHECK(code[1]  == 0x4804); // ldr r0, [pc, #16]	; (14 <l>)
+	CHECK(code[2]  == 0x47c8); // blx r9
+	CHECK(code[3]  == 0x0001); // .short 0x0001
+	CHECK(code[4]  == 0x47c8); // blx r9
+	CHECK(code[5]  == 0xb800); // .short 0xb800
+	CHECK(code[6]  == 0x1888); // adds r0, r1, r2
+	CHECK(code[7]  == 0x47c8); // blx r9
+	CHECK(code[8]  == 0x4800); // .short 0x4800
+	CHECK(code[9]  == 0xd9f6); // bls.n 2 <f>
+	CHECK(code[10] == 0xf00d); // .word 0x1337f00d
+	CHECK(code[11] == 0x1337);
+}

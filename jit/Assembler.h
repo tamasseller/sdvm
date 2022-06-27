@@ -134,13 +134,9 @@ public:
 	void emit(uint16_t isn);
 
 	/**
-	 *
+	 * Emit a supplementary call through the virtual machine linking table.
 	 */
-	inline void Assembler::data(uint16_t isn)
-	{
-		assert((void*)nextIsn < (void*)firstLiteral);	// GCOV_EXCL_LINE
-		*nextIsn++ = isn;
-	}
+	void vmTab(uint16_t isn);
 
 	/**
 	 * Pin down a label after the previously emitted instruction (or before the first one if there is none).
