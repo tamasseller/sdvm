@@ -6,10 +6,12 @@ SOURCES += TestIsn.cpp
 SOURCES += TestDisasm.cpp
 SOURCES += TestPrinter.cpp
 SOURCES += TestBuilder.cpp
+SOURCES += TestCompiler.cpp
 SOURCES += TestInterpreter.cpp
 SOURCES += TestErrorHandler.cpp
 SOURCES += TestImmediateSynth.cpp
 
+SOURCES += jit/Compiler.cpp
 SOURCES += jit/Assembler.cpp
 
 SOURCES += pet/1test/TestRunnerExperimental.cpp

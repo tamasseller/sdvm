@@ -2,41 +2,51 @@
 
 #include "jit/Compiler.h"
 
+#include "Disassembler.h"
+
 class MockFunction
 {
-	Bytecode::FunctionInfo info;
 	std::vector<Bytecode::Instruction> body;
 
 public:
-	inline MockFunction(const Bytecode::FunctionInfo &info, const std::vector<Bytecode::Instruction> &body): info(info), body(body)	{}
+	const Bytecode::FunctionInfo info;
+	inline MockFunction(const Bytecode::FunctionInfo &info, const std::vector<Bytecode::Instruction> &body): body(body), info(info)	{}
 
 	class Reader: public Bytecode::InstructionStreamReader
 	{
-		decltype(body)::iterator it, end;
+		decltype(body)::const_iterator it, end;
 
 		static bool read(Bytecode::InstructionStreamReader *isr, Bytecode::Instruction& isn)
 		{
-			auto self = static_cast<Reader>(isr);
+			auto self = static_cast<Reader*>(isr);
 
-			if(it != end)
+			if(self->it != self->end)
 			{
-				isn = *it++;
+				isn = *self->it++;
 				return true;
 			}
 
 			return false;
 		}
 	public:
-		inline Reader(MockFunction& f): InstructionStreamReader(&read), it(f.body.begin()), end(f.body.end()) {}
+		inline Reader(const MockFunction& f): InstructionStreamReader(&read), it(f.body.cbegin()), end(f.body.cend()) {}
 	};
 };
 
-TEST_GROUP(Compiler){};
+TEST_GROUP(Compiler)
+{
+	static inline auto compile(const MockFunction& f)
+	{
+		uint16_t out[512];
+		MockFunction::Reader r(f);
+		auto end = Compiler::compile(0, {out, sizeof(out) / sizeof(out[0])}, f.info, r);
+		return Disassembler::disassemble(out, end);
+	}
+};
 
 TEST(Compiler, Sanity)
 {
-	uint16_t out[512];
-	MockFunction f
+	auto result = compile(MockFunction
 	{
 		Bytecode::FunctionInfo{
 			.nLabels = 0,
@@ -49,9 +59,6 @@ TEST(Compiler, Sanity)
 			Bytecode::mul(),
 			Bytecode::ret()
 		}
-	};
-	MockFunction::Reader r(f);
-	auto end = Compiler::compile(0, {out, sizeof(out) / sizeof(out[0])}, f.info, r);
-
+	});
 
 }

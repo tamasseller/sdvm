@@ -51,45 +51,53 @@ struct Bytecode
 			Arg, Stack
 		};
 
+		struct Immediate
+		{
+			uint32_t value;
+		};
+
+		struct Binary
+		{
+			BinaryOperation op;
+		};
+
+		struct Conditional
+		{
+			Condition cond;
+			uint32_t targetIdx;
+		};
+
+		struct Jump
+		{
+			uint32_t targetIdx;
+		};
+
+		struct Label
+		{
+			uint32_t stackAdjustment;
+		};
+
+		struct Move
+		{
+			DupDirection dir;
+			DupTarget target;
+			uint32_t idx;
+		};
+
+		struct Call
+		{
+			uint32_t nArgs, nRet;
+		};
+
 		union
 		{
-			struct Immediate
-			{
-				uint32_t value;
-			} imm;
-
-			struct Binary
-			{
-				BinaryOperation op;
-			} bin;
-
-			struct Conditional
-			{
-				Condition cond;
-				uint32_t targetIdx;
-			} cond;
-
-			struct Jump
-			{
-				uint32_t targetIdx;
-			} jump;
-
-			struct Label
-			{
-				uint32_t stackAdjustment;
-			} label;
-
-			struct Move
-			{
-				DupDirection dir;
-				DupTarget target;
-				uint32_t idx;
-			} move;
-
-			struct Call
-			{
-				uint32_t nArgs, nRet;
-			} call;
+			Immediate imm;
+			Binary bin;
+			Conditional cond;
+			Jump jump;
+			Label label;
+			Move move;
+			Call call;
 		};
 	};
 
@@ -154,7 +162,7 @@ struct Bytecode
 	static inline constexpr auto move(Instruction::DupDirection dir, Instruction::DupTarget target, uint32_t idx)
 	{
 		auto ret = Instruction{.g = Instruction::OperationGroup::Move};
-		ret.label = Instruction::Move{.dir = dir, .target = target, .idx = idx};
+		ret.move = Instruction::Move{.dir = dir, .target = target, .idx = idx};
 		return ret;
 	}
 
@@ -166,7 +174,7 @@ struct Bytecode
 	static inline constexpr auto call(uint32_t nArgs, uint32_t nRet)
 	{
 		auto ret = Instruction{.g = Instruction::OperationGroup::Call};
-		ret.label = Instruction::Call{.nArgs = nArgs, .nRet = nRet};
+		ret.call = Instruction::Call{.nArgs = nArgs, .nRet = nRet};
 		return ret;
 	}
 

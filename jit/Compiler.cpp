@@ -41,7 +41,6 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 	Assembler a(out.start, out.length, labels, info.nLabels);
 
 	// TODO optimize leafs
-	assert(info.hasNonTailCall);
 	a.emit(ArmV6::mov(ArmV6::AnyReg(0), ArmV6::AnyReg(14))); // mov r0, lr
 	a.emit(ArmV6::blx(ArmV6::AnyReg(9)));
 	a.vmTab((VMTAB_ENTER_NON_LEAF_INDEX << VMTAB_SHIFT) | fnIdx);
@@ -159,9 +158,9 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 					/* SignedNotLess      */ ArmV6::Condition::GE
 				};
 
-				assert(isn.cond.cond < sizeof(condLookup));
+				assert((size_t)isn.cond.cond < sizeof(condLookup));
 
-				a.emit(ArmV6::condBranch(condLookup[isn.cond.cond], Assembler::Label(isn.cond.targetIdx)));
+				a.emit(ArmV6::condBranch(condLookup[(size_t)isn.cond.cond], Assembler::Label(isn.cond.targetIdx)));
 				stackDepth -= 2; // TODO reconcile laziness: check target and save if first jump, manifest stored state if not.
 				break;
 			}
@@ -243,6 +242,6 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 
 	a.pin(end);
 
-	writeFunctionEpilogue(a, info.nRet); // TODO optimize leafs
+//	writeFunctionEpilogue(a, info.nRet); // TODO optimize leafs
 	return a.assemble();
 }
