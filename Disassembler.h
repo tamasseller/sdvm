@@ -179,6 +179,83 @@ public:
 				continue;
 			}
 
+			switch(isn >> 7)
+			{
+			case (uint16_t)Imm7Op::INCRSP >> 7:
+				ret.push_back(displayImm7("add", isn));
+				continue;
+			case (uint16_t)Imm7Op::DECRSP >> 7:
+				ret.push_back(displayImm7("sub", isn));
+				continue;
+			}
+
+			switch(isn >> 8)
+			{
+			case (uint16_t)BranchOp::EQ >> 8:
+				ret.push_back(displayCond("beq", isn));
+				continue;
+			case (uint16_t)BranchOp::NE >> 8:
+				ret.push_back(displayCond("bne", isn));
+				continue;
+			case (uint16_t)BranchOp::HS >> 8:
+				ret.push_back(displayCond("bhs", isn));
+				continue;
+			case (uint16_t)BranchOp::LO >> 8:
+				ret.push_back(displayCond("blo", isn));
+				continue;
+			case (uint16_t)BranchOp::MI >> 8:
+				ret.push_back(displayCond("bmi", isn));
+				continue;
+			case (uint16_t)BranchOp::PL >> 8:
+				ret.push_back(displayCond("bpl", isn));
+				continue;
+			case (uint16_t)BranchOp::VS >> 8:
+				ret.push_back(displayCond("bvs", isn));
+				continue;
+			case (uint16_t)BranchOp::VC >> 8:
+				ret.push_back(displayCond("bvc", isn));
+				continue;
+			case (uint16_t)BranchOp::HI >> 8:
+				ret.push_back(displayCond("bhi", isn));
+				continue;
+			case (uint16_t)BranchOp::LS >> 8:
+				ret.push_back(displayCond("bls", isn));
+				continue;
+			case (uint16_t)BranchOp::GE >> 8:
+				ret.push_back(displayCond("bge", isn));
+				continue;
+			case (uint16_t)BranchOp::LT >> 8:
+				ret.push_back(displayCond("blt", isn));
+				continue;
+			case (uint16_t)BranchOp::GT >> 8:
+				ret.push_back(displayCond("bgt", isn));
+				continue;
+			case (uint16_t)BranchOp::LE >> 8:
+				ret.push_back(displayCond("ble", isn));
+				continue;
+			case (uint16_t)BranchOp::UDF >> 8:
+				ret.push_back(displayUdfSvcBkpt("udf", isn));
+				continue;
+			case (uint16_t)BranchOp::SVC >> 8:
+				ret.push_back(displayUdfSvcBkpt("svc", isn));
+				continue;
+			case 0b10111100:
+				ret.push_back("pop " + formatRegList(isn));
+				continue;
+			case 0b10111101:
+				ret.push_back("pop " + formatRegList(isn, "pc"));
+				continue;
+			case 0b10110100:
+				ret.push_back("push " + formatRegList(isn));
+				continue;
+			case 0b10110101:
+				ret.push_back("push " + formatRegList(isn, "lr"));
+				continue;
+			case 0b10111110:
+				ret.push_back(displayUdfSvcBkpt("bkpt", isn));
+				continue;
+			}
+
 			switch(isn >> 9)
 			{
 			case (uint16_t)Reg3Op::ADDREG >> 9:
@@ -248,20 +325,6 @@ public:
 			case (uint16_t)Imm5Op::LDRH >> 11:
 				ret.push_back(displayImm5ls("ldrh", isn, 1));
 				continue;
-			}
-
-			switch(isn >> 7)
-			{
-			case (uint16_t)Imm7Op::INCRSP >> 7:
-				ret.push_back(displayImm7("add", isn));
-				continue;
-			case (uint16_t)Imm7Op::DECRSP >> 7:
-				ret.push_back(displayImm7("sub", isn));
-				continue;
-			}
-
-			switch(isn >> 11)
-			{
 			case (uint16_t)Imm8Op::MOV >> 11:
 				ret.push_back(displayImm8("movs", isn));
 				continue;
@@ -289,6 +352,23 @@ public:
 			case (uint16_t)Imm8Op::ADDSP >> 11:
 				ret.push_back(displayImm8s("add", "sp", isn, false));
 				continue;
+			case 0b11000:
+					ret.push_back("stmia " + loRegName(isn >> 8) + "!, " + formatRegList(isn));
+					continue;
+			case 0b11001:
+				{
+					const auto n = (isn >> 8) & 7;
+					const auto wb = (isn & (1 << n)) == 0;
+					ret.push_back("ldmia " + loRegName(n) + (wb ? "!, " : ", ") + formatRegList(isn));
+					continue;
+				}
+			case 0b11100:
+				{
+					int16_t off = isn & 0x7ff;
+					off |= (isn & 0x0400) ? 0xf800 : 0;
+					ret.push_back("b " + std::to_string(off << 1));
+					continue;
+				}
 			}
 
 			switch(isn)
@@ -313,118 +393,6 @@ public:
 				continue;
 			case (uint16_t)NoArgOp::SEV:
 				ret.push_back("sev");
-				continue;
-			}
-
-			switch(isn >> 8)
-			{
-			case (uint16_t)BranchOp::EQ >> 8:
-				ret.push_back(displayCond("beq", isn));
-				continue;
-			case (uint16_t)BranchOp::NE >> 8:
-				ret.push_back(displayCond("bne", isn));
-				continue;
-			case (uint16_t)BranchOp::HS >> 8:
-				ret.push_back(displayCond("bhs", isn));
-				continue;
-			case (uint16_t)BranchOp::LO >> 8:
-				ret.push_back(displayCond("blo", isn));
-				continue;
-			case (uint16_t)BranchOp::MI >> 8:
-				ret.push_back(displayCond("bmi", isn));
-				continue;
-			case (uint16_t)BranchOp::PL >> 8:
-				ret.push_back(displayCond("bpl", isn));
-				continue;
-			case (uint16_t)BranchOp::VS >> 8:
-				ret.push_back(displayCond("bvs", isn));
-				continue;
-			case (uint16_t)BranchOp::VC >> 8:
-				ret.push_back(displayCond("bvc", isn));
-				continue;
-			case (uint16_t)BranchOp::HI >> 8:
-				ret.push_back(displayCond("bhi", isn));
-				continue;
-			case (uint16_t)BranchOp::LS >> 8:
-				ret.push_back(displayCond("bls", isn));
-				continue;
-			case (uint16_t)BranchOp::GE >> 8:
-				ret.push_back(displayCond("bge", isn));
-				continue;
-			case (uint16_t)BranchOp::LT >> 8:
-				ret.push_back(displayCond("blt", isn));
-				continue;
-			case (uint16_t)BranchOp::GT >> 8:
-				ret.push_back(displayCond("bgt", isn));
-				continue;
-			case (uint16_t)BranchOp::LE >> 8:
-				ret.push_back(displayCond("ble", isn));
-				continue;
-			case (uint16_t)BranchOp::UDF >> 8:
-				ret.push_back(displayUdfSvcBkpt("udf", isn));
-				continue;
-			case (uint16_t)BranchOp::SVC >> 8:
-				ret.push_back(displayUdfSvcBkpt("svc", isn));
-				continue;
-			}
-
-			if((isn & 0b1111'0'11'0'00000000) == 0b1011'0'10'0'00000000)
-			{
-				if(isn & (1 << 11))
-				{
-					ret.push_back("pop " + formatRegList(isn, (isn & (1 << 8)) ? "pc" : nullptr));
-					continue;
-				}
-				else
-				{
-					ret.push_back("push " + formatRegList(isn, (isn & (1 << 8)) ? "lr" : nullptr));
-					continue;
-				}
-			}
-
-			if((isn & 0b1111'0'000'00000000) == 0b1100'0'000'00000000)
-			{
-				if(isn & (1 << 11))
-				{
-					const auto n = (isn >> 8) & 7;
-					const auto wb = (isn & (1 << n)) == 0;
-					ret.push_back("ldmia " + loRegName(n) + (wb ? "!, " : ", ") + formatRegList(isn));
-					continue;
-				}
-				else
-				{
-					ret.push_back("stmia " + loRegName(isn >> 8) + "!, " + formatRegList(isn));
-					continue;
-				}
-			}
-
-			if((isn & 0b1111'0'000'00000000) == 0b1100'0'000'00000000)
-			{
-				if(isn & (1 << 11))
-				{
-					const auto n = (isn >> 8) & 7;
-					const auto wb = (isn & (1 << n)) == 0;
-					ret.push_back("ldmia " + loRegName(n) + (wb ? "!, " : ", ") + formatRegList(isn));
-					continue;
-				}
-				else
-				{
-					ret.push_back("stmia " + loRegName(isn >> 8) + "!, " + formatRegList(isn));
-					continue;
-				}
-			}
-
-			if((isn & 0b11111111'00000000) == 0b10111110'00000000)
-			{
-				ret.push_back(displayUdfSvcBkpt("bkpt", isn));
-				continue;
-			}
-
-			if((isn & 0b11111'00000000000) == 0b11100'00000000000)
-			{
-				int16_t off = isn & 0x7ff;
-				off |= (isn & 0x0400) ? 0xf800 : 0;
-				ret.push_back("b " + std::to_string(off << 1));
 				continue;
 			}
 
