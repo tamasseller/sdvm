@@ -3,6 +3,7 @@ OUTPUT = sdvm-test
 SOURCES += main.cpp
 SOURCES += TestAsm.cpp
 SOURCES += TestIsn.cpp
+SOURCES += TestDisasm.cpp
 SOURCES += TestPrinter.cpp
 SOURCES += TestBuilder.cpp
 SOURCES += TestInterpreter.cpp

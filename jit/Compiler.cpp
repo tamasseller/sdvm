@@ -44,9 +44,8 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 	assert(info.hasNonTailCall);
 	a.emit(ArmV6::mov(ArmV6::AnyReg(0), ArmV6::AnyReg(14))); // mov r0, lr
 	a.emit(ArmV6::blx(ArmV6::AnyReg(9)));
-	a.data((VMTAB_ENTER_NON_LEAF_INDEX << VMTAB_SHIFT) | fnIdx);
+	a.vmTab((VMTAB_ENTER_NON_LEAF_INDEX << VMTAB_SHIFT) | fnIdx);
 	a.emit(ArmV6::add(ArmV6::AnyReg(15), ArmV6::AnyReg(14))); // add pc, lr
-
 
 	const auto frameGapSize = 2;
 
@@ -231,7 +230,7 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 				stackDepth += isn.call.nRet - isn.call.nArgs;
 				break;
 			}
-			case Bytecode::Instruction::OperationGroup::Ret:
+			case Bytecode::Instruction::OperationGroup::Return:
 			{
 				// TODO flush all lazy calculations here such that it is PCS compatible.
 				a.emit(ArmV6::b(end));

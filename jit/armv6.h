@@ -18,8 +18,6 @@ struct ArmV6
 		}
 	};
 
-
-
 	struct AnyReg
 	{
 		uint16_t idx;
@@ -92,7 +90,7 @@ struct ArmV6
 		}
 	};
 
-private:
+protected:
 	enum class Reg2Op: uint16_t
 	{
 		//            opcode  m   dn

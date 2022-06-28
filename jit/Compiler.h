@@ -5,7 +5,7 @@
 
 #include <cstddef>
 
-class Compiler
+struct Compiler
 {
 	struct Output
 	{
@@ -13,7 +13,7 @@ class Compiler
 		size_t length;
 	};
 
-	uint16_t *compile(uint16_t fnIdx, const Output& out, const Bytecode::FunctionInfo& info, Bytecode::InstructionStreamReader& reader);
+	static uint16_t *compile(uint16_t fnIdx, const Output& out, const Bytecode::FunctionInfo& info, Bytecode::InstructionStreamReader& reader);
 };
 
 #endif /* JIT_COMPILER_H_ */
