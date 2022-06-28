@@ -1,5 +1,6 @@
 #include "TestUtils.h"
 
+#include "jit/Assembler.h"
 #include "Disassembler.h"
 
 TEST_GROUP(DisAsm)
@@ -151,4 +152,18 @@ TEST(DisAsm, Branch)
 {
 	CHECK(single(0xe002) == "b 4"),
 	CHECK(single(0xe7fb) == "b -10");
+}
+
+TEST(DisAsm, VmTab)
+{
+	uint16_t code[2];
+	Assembler a(code, 2, nullptr, 0);
+	a.vmTab(0x1234);
+	auto end = a.assemble();
+	CHECK(end == code + 2);
+
+	auto res = Disassembler::disassemble(code, code + 2);
+	CHECK(res.size() == 2);
+	CHECK(res[0] == "blx r9");
+	CHECK(res[1] == ".short 0x1234");
 }

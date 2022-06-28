@@ -9,22 +9,22 @@ TEST_GROUP(Asm)
 
 	TEST_SETUP()
 	{
-		r0  = {0};
-		r1  = {1};
-		r2  = {2};
-		r3  = {3};
-		r4  = {4};
-		r5  = {5};
-		r6  = {6};
-		r7  = {7};
-		r8  = {8};
-		r9  = {9};
-		r10 = {10};
-		r11 = {11};
-		r12 = {12};
-		sp  = {13};
-		lr  = {14};
-		pc  = {15};
+		r0  = ArmV6::LoReg(0);
+		r1  = ArmV6::LoReg(1);
+		r2  = ArmV6::LoReg(2);
+		r3  = ArmV6::LoReg(3);
+		r4  = ArmV6::LoReg(4);
+		r5  = ArmV6::LoReg(5);
+		r6  = ArmV6::LoReg(6);
+		r7  = ArmV6::LoReg(7);
+		r8  = ArmV6::AnyReg(8);
+		r9  = ArmV6::AnyReg(9);
+		r10 = ArmV6::AnyReg(10);
+		r11 = ArmV6::AnyReg(11);
+		r12 = ArmV6::AnyReg(12);
+		sp  = ArmV6::AnyReg(13);
+		lr  = ArmV6::AnyReg(14);
+		pc  = ArmV6::AnyReg(15);
 	}
 };
 

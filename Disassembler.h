@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <iomanip>
 #include <cassert>
 
 class Disassembler: ArmV6
@@ -419,7 +420,14 @@ public:
 					{
 						assert(dn == 0b1000);
 						ret.push_back("blx " + regName(m));
-						// TODO if m == 9 next is data
+
+						if(m == 9)
+						{
+							assert(from != to);
+							std::stringstream ss;
+							ss << ".short 0x" << std::hex << std::setw(4) << std::setfill('0') << (uint32_t)*from++;
+							ret.push_back(ss.str());
+						}
 					}
 					continue;
 			}

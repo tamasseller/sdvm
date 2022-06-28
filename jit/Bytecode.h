@@ -101,7 +101,6 @@ struct Bytecode
 		};
 	};
 
-
 	static inline constexpr auto immediate(uint32_t value)
 	{
 		auto ret = Instruction{.g = Instruction::OperationGroup::Immediate};
@@ -126,6 +125,7 @@ struct Bytecode
 	static inline constexpr auto aXor() { return binary(Instruction::BinaryOperation::Xor); }
 	static inline constexpr auto lsh()  { return binary(Instruction::BinaryOperation::Lsh); }
 	static inline constexpr auto rsh()  { return binary(Instruction::BinaryOperation::Rsh); }
+	static inline constexpr auto ash()  { return binary(Instruction::BinaryOperation::Ash); }
 
 	static inline constexpr auto conditional(Instruction::Condition cond, uint32_t targetIdx)
 	{

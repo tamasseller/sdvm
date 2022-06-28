@@ -1,14 +1,14 @@
 #include "Compiler.h"
 
 #include "VmTab.h"
-#include "Assembler.h"
 #include "Immediate.h"
+#include "Assembler.h"
 
 static inline void summonImmediate(Assembler& a, ArmV6::LoReg target, uint32_t value)
 {
 	if(ImmediateFabricationPlan plan; ImmediateFabricationPlan::make(value, plan))
 	{
-		a.emit(ArmV6::mov(target, plan.imm));
+		a.emit(ArmV6::movs(target, plan.imm));
 
 		switch(plan.op)
 		{
@@ -17,7 +17,7 @@ static inline void summonImmediate(Assembler& a, ArmV6::LoReg target, uint32_t v
 			break;
 
 		case ImmediateFabricationPlan::LastOp::Shift:
-			a.emit(ArmV6::lsls(target, plan.param));
+			a.emit(ArmV6::lsls(target, target, plan.param));
 			break;
 
 		case ImmediateFabricationPlan::LastOp::Not:
@@ -38,13 +38,12 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 
 	Assembler::LabelInfo labels[info.nLabels + 1];
 	Assembler::Label end(info.nLabels);
-	Assembler a(out.start, out.length, labels, info.nLabels);
+	Assembler a(out.start, out.length, labels, info.nLabels + 1);
 
 	// TODO optimize leafs
-	a.emit(ArmV6::mov(ArmV6::AnyReg(0), ArmV6::AnyReg(14))); // mov r0, lr
-	a.emit(ArmV6::blx(ArmV6::AnyReg(9)));
-	a.vmTab((VMTAB_ENTER_NON_LEAF_INDEX << VMTAB_SHIFT) | fnIdx);
-	a.emit(ArmV6::add(ArmV6::AnyReg(15), ArmV6::AnyReg(14))); // add pc, lr
+	a.emit(ArmV6::mov(ArmV6::AnyReg(0), ArmV6::AnyReg(14))); 		// mov r0, lr
+	a.vmTab((VMTAB_ENTER_NON_LEAF_INDEX << VMTAB_SHIFT) | fnIdx); 	// blx r9; .short <param>
+	a.emit(ArmV6::add(ArmV6::AnyReg(15), ArmV6::AnyReg(14))); 		// add pc, lr
 
 	const auto frameGapSize = 2;
 
@@ -185,13 +184,13 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 				{
 					case Bytecode::Instruction::DupTarget::Arg:
 					{
-						assert(isn.move.idx < stackDepth);
-						offset = (stackDepth - isn.move.idx) << 2;
+						offset = (stackDepth + frameGapSize + isn.move.idx) << 2;
 						break;
 					}
 					case Bytecode::Instruction::DupTarget::Stack:
 					{
-						offset = (stackDepth + frameGapSize + isn.move.idx) << 2;
+						assert(isn.move.idx < stackDepth);
+						offset = (stackDepth - isn.move.idx) << 2;
 						break;
 					}
 				}
@@ -218,7 +217,7 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 			}
 			case Bytecode::Instruction::OperationGroup::Call:
 			{
-				// TODO flush all lazy calculations here such that it is PCS compatible.
+				// TODO do all lazy calculations here and write result in a PCS compatible manner.
 
 				const auto r = ArmV6::LoReg(0);	// Must be r0 (TODO move to r0 if not).
 				const auto s = ArmV6::LoReg(1);
@@ -231,7 +230,8 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 			}
 			case Bytecode::Instruction::OperationGroup::Return:
 			{
-				// TODO flush all lazy calculations here such that it is PCS compatible.
+				// TODO do all lazy calculations here and write result in a PCS compatible manner.
+
 				a.emit(ArmV6::b(end));
 				break;
 			}
@@ -241,7 +241,7 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 	assert(labelIdx == info.nLabels);
 
 	a.pin(end);
+	a.vmTab((VMTAB_LEAVE_NON_LEAF_INDEX << VMTAB_SHIFT) | info.nRet);
 
-//	writeFunctionEpilogue(a, info.nRet); // TODO optimize leafs
 	return a.assemble();
 }

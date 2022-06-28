@@ -133,13 +133,14 @@ uint16_t* Assembler::assemble()
 		// Replace udf with 'blx r9' and skip payload.
 		else if(isn == ArmV6::udf(0))
 		{
-			*p = ArmV6::blx(9);
+			*p = ArmV6::blx(ArmV6::AnyReg(9));
 			assert(p < nextIsn); // GCOV_EXCL_LINE
 			p++;
 		}
 	}
 
-	uint32_t * const poolEnd = poolStart + ((uint32_t*)endIsns - firstLiteral);
+	const auto nLit = (uint32_t*)endIsns - firstLiteral;
+	uint32_t * const poolEnd = poolStart + nLit;
 	if(poolEnd != poolStart)
 	{
 		// Nop out padding between last instruction and literal pool if there is any.
@@ -187,5 +188,5 @@ uint16_t* Assembler::assemble()
 		}
 	}
 
-	return (uint16_t*)poolEnd;
+	return (uint16_t*)nextIsn + nLit;
 }

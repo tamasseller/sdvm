@@ -13,7 +13,7 @@ struct ArmV6
 
 		inline LoReg() = default;
 		inline LoReg(const LoReg&) = default;
-		inline LoReg(uint16_t idx): idx(idx) {
+		explicit inline LoReg(uint16_t idx): idx(idx) {
 			assert(idx < 8);				// GCOV_EXCL_LINE
 		}
 	};
@@ -26,7 +26,7 @@ struct ArmV6
 		inline AnyReg(const AnyReg&) = default;
 		inline AnyReg(const LoReg& lo): idx(lo.idx) {}
 
-		inline AnyReg(uint16_t idx): idx(idx) {
+		explicit inline AnyReg(uint16_t idx): idx(idx) {
 			assert(idx < 16);				// GCOV_EXCL_LINE
 		}
 	};
@@ -37,7 +37,7 @@ struct ArmV6
 
 		inline Imm() = default;
 		inline Imm(const Imm&) = default;
-		Imm(uint16_t v): v(v) {
+		inline Imm(uint16_t v): v(v) {
 			assert(v < (1 << n));			// GCOV_EXCL_LINE
 		}
 	};
