@@ -67,7 +67,7 @@ struct Bytecode
 
 		struct Label
 		{
-			uint32_t stackAdjustment;
+			int32_t stackAdjustment;
 		};
 
 		struct Move
@@ -146,7 +146,7 @@ struct Bytecode
 		return ret;
 	}
 
-	static inline constexpr auto label(uint32_t stackAdjustment = 0)
+	static inline constexpr auto label(int32_t stackAdjustment = 0)
 	{
 		auto ret = Instruction{.g = Instruction::OperationGroup::Label};
 		ret.label = Instruction::Label{.stackAdjustment = stackAdjustment};

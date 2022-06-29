@@ -102,6 +102,7 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 				}
 				else
 				{
+					/* GCOV_EXCL_START */
 					assert(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Mod);
 					const auto idx = (int)isn.bin.op - (int)Bytecode::Instruction::BinaryOperation::Div;
 
@@ -111,6 +112,7 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 					};
 
 					a.vmTab(controlValueLookup[idx]);
+					/* GCOV_EXCL_STOP */
 				}
 
 				a.emit(ArmV6::push(ArmV6::LoRegs{}.add(nd))); // TODO lazy pushing
@@ -148,13 +150,14 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 			}
 			case Bytecode::Instruction::OperationGroup::Jump:
 			{
-				a.emit(ArmV6::b(Assembler::Label(isn.cond.targetIdx)));
+				a.emit(ArmV6::b(Assembler::Label(isn.jump.targetIdx)));
 
 				// TODO reconcile laziness: check target and save if first jump, manifest stored state if not.
 				break;
 			}
 			case Bytecode::Instruction::OperationGroup::Label:
 			{
+				stackDepth += isn.label.stackAdjustment;
 				a.pin(Assembler::Label(labelIdx++));
 				break;
 			}
@@ -210,8 +213,8 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 			case Bytecode::Instruction::OperationGroup::Return:
 			{
 				// TODO do all lazy calculations here and write result in a PCS compatible manner.
-
 				a.emit(ArmV6::b(end));
+				stackDepth -= info.nRet;
 				break;
 			}
 		}

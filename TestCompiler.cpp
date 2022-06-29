@@ -375,7 +375,6 @@ TEST(Compiler, SubXorAsh)
 	});
 }
 
-
 TEST(Compiler, ConsumeFnv)
 {
 	auto result = compile(MockFunction
@@ -422,30 +421,273 @@ TEST(Compiler, ConsumeFnv)
 	});
 }
 
-int popCount(int n)
-{
-	int ret = 0;
-	int i = 0;
-
-	do
-	{
-		if(n & (1 << i))
-		{
-			ret++;
-		}
-
-		i++;
-	}
-	while(i < 32);
-
-	return ret;
-}
-
 TEST(Compiler, PopCount)
 {
+	auto result = compile(MockFunction
+	{
+		Bytecode::FunctionInfo{
+			.nLabels = 2,
+			.nArgs = 1,
+			.nRet = 1,
+			.hasNonTailCall = false
+		},
+		{
+			Bytecode::immediate(0),	// int ret = 0;
+
+			Bytecode::immediate(0), // int i = 0;
+
+			Bytecode::label(),		// do {
+
+			Bytecode::immediate(1), //     const auto m = (1 << i);
+			Bytecode::pull(2),
+			Bytecode::lsh(),
+
+			Bytecode::pull(0),      //     const auto n = m & arg;
+			Bytecode::aAnd(),
+
+			Bytecode::jeq(1),		//     if(n != 0) {
+			Bytecode::pull(1),		//         ret++;
+			Bytecode::immediate(1),
+			Bytecode::add(),
+			Bytecode::shove(1),
+
+			Bytecode::label(),		//     }
+
+			Bytecode::pull(2),		//     i++;
+			Bytecode::immediate(1),
+			Bytecode::add(),
+			Bytecode::shove(2),
+
+			Bytecode::pull(2),		// } while(i < 32);
+			Bytecode::immediate(1),
+			Bytecode::jslt(0),
+
+			Bytecode::drop(1),
+			Bytecode::ret()
+		}
+	});
+
+	checkCodeIs(result,
+	{
+		"mov r0, lr",
+		"blx r9",
+		".short 0x0000",
+		"add pc, lr",
+
+		"movs r0, #0",
+		"push {r0}",
+
+		"movs r0, #0",
+		"push {r0}",
+
+		"movs r0, #1",
+		"push {r0}",
+
+		"ldr r0, [sp, #16]",
+		"push {r0}",
+
+		"pop {r0, r1}",
+		"lsls r1, r0",
+		"push {r1}",
+
+		"ldr r0, [sp, #24]",
+		"push {r0}",
+
+		"pop {r0, r1}",
+		"ands r1, r0",
+		"push {r1}",
+
+		"pop {r0, r1}",
+		"cmp r1, r0",
+		"beq 16",
+
+		"ldr r0, [sp, #12]",
+		"push {r0}",
+
+		"movs r0, #1",
+		"push {r0}",
+
+		"pop {r0, r1}",
+		"adds r1, r1, r0",
+		"push {r1}",
+
+		"pop {r0}",
+		"str r0, [sp, #12]",
+
+		"ldr r0, [sp, #8]",
+		"push {r0}",
+
+		"movs r0, #1",
+		"push {r0}",
+
+		"pop {r0, r1}",
+		"adds r1, r1, r0",
+		"push {r1}",
+
+		"pop {r0}",
+		"str r0, [sp, #8]",
+
+		"ldr r0, [sp, #8]",
+		"push {r0}",
+
+		"movs r0, #1",
+		"push {r0}",
+
+		"pop {r0, r1}",
+		"cmp r1, r0",
+		"blt -82",
+
+		"add sp, #4",
+
+		"b -2",
+
+		"blx r9",
+		".short 0x8001",
+	});
 }
 
-TEST(Compiler, Recursion)
+TEST(Compiler, Abs)
 {
+	auto result = compile(MockFunction
+	{
+		Bytecode::FunctionInfo{
+			.nLabels = 2,
+			.nArgs = 1,
+			.nRet = 1,
+			.hasNonTailCall = false
+		},
+		{
+			Bytecode::pull(0),
+			Bytecode::immediate(0),
+			Bytecode::jslt(0),
+			Bytecode::pull(0),
+			Bytecode::jump(1),
+			Bytecode::label(-1), // 0
+			Bytecode::immediate(0),
+			Bytecode::pull(0),
+			Bytecode::sub(),
+			Bytecode::label(0),	// 1
+			Bytecode::ret()
+		}
+	});
 
+	checkCodeIs(result,
+	{
+		"mov r0, lr",
+		"blx r9",
+		".short 0x0000",
+		"add pc, lr",
+
+		"ldr r0, [sp, #12]",
+		"push {r0}",
+
+		"movs r0, #0",
+		"push {r0}",
+
+		"pop {r0, r1}",
+		"cmp r1, r0",
+		"blt 4",
+
+		"ldr r0, [sp, #12]",
+		"push {r0}",
+
+		"b 12",
+
+		"movs r0, #0",
+		"push {r0}",
+
+		"ldr r0, [sp, #16]",
+		"push {r0}",
+
+		"pop {r0, r1}",
+		"subs r1, r1, r0",
+		"push {r1}",
+
+		"b -2",
+
+		"blx r9",
+		".short 0x8001",
+	});
+}
+
+TEST(Compiler, Factorial)
+{
+	auto result = compile(MockFunction
+	{
+		Bytecode::FunctionInfo{
+			.nLabels = 1,
+			.nArgs = 1,
+			.nRet = 1,
+			.hasNonTailCall = false
+		},
+		{
+			Bytecode::pull(0),
+			Bytecode::immediate(1),
+			Bytecode::jsgt(0),
+
+			Bytecode::immediate(1),
+			Bytecode::ret(),
+
+			Bytecode::label(),
+
+			Bytecode::pull(0),
+			Bytecode::immediate(1),
+			Bytecode::sub(),
+
+			Bytecode::immediate(0),
+			Bytecode::call(1, 1),
+			Bytecode::mul(),
+			Bytecode::ret()
+		}
+	});
+
+	checkCodeIs(result,
+	{
+		"mov r0, lr",
+		"blx r9",
+		".short 0x0000",
+		"add pc, lr",
+
+		"ldr r0, [sp, #12]",
+		"push {r0}",
+
+		"movs r0, #1",
+		"push {r0}",
+
+		"pop {r0, r1}",
+		"cmp r1, r0",
+		"bgt 4",
+
+		"movs r0, #1",
+		"push {r0}",
+
+		"b 32",
+
+		"ldr r0, [sp, #12]",
+		"push {r0}",
+
+		"movs r0, #1",
+		"push {r0}",
+
+		"pop {r0, r1}",
+		"subs r1, r1, r0",
+		"push {r1}",
+
+		"movs r0, #0",
+		"push {r0}",
+
+		"pop {r0}",
+		"add r0, r10",
+		"ldr r1, [r0, #0]",
+		"blx r1",
+
+		"pop {r0, r1}",
+		"muls r1, r0",
+		"push {r1}",
+
+		"b -2",
+
+		"blx r9",
+		".short 0x8001",
+	});
 }
