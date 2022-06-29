@@ -125,8 +125,7 @@ TEST(Compiler, Square)
 		},
 		{
 			Bytecode::pull(0),
-			Bytecode::mul(),
-			Bytecode::ret()
+			Bytecode::mul()
 		}
 	});
 
@@ -143,8 +142,6 @@ TEST(Compiler, Square)
 		"pop {r0, r1}",
 		"muls r1, r0",
 		"push {r1}",
-
-		"b -2",
 
 		"blx r9",
 		".short 0x8001",
@@ -182,8 +179,6 @@ TEST(Compiler, AddThree)
 		"adds r1, r1, r0",
 		"push {r1}",
 
-		"b -2",
-
 		"blx r9",
 		".short 0x8001",
 	});
@@ -210,7 +205,6 @@ TEST(Compiler, Add1024Times400GreaterThanNegative100)
 				Bytecode::ret(),
 			Bytecode::label(),
 				Bytecode::immediate(1),
-				Bytecode::ret()
 		}
 	});
 
@@ -248,12 +242,10 @@ TEST(Compiler, Add1024Times400GreaterThanNegative100)
 		"movs r0, #0",
 		"push {r0}",
 
-		"b 4",
+		"b 2",
 
 		"movs r0, #1",
 		"push {r0}",
-
-		"b -2",
 
 		"blx r9",
 		".short 0x8001",
@@ -324,8 +316,6 @@ TEST(Compiler, SetLowByte)
 		"orrs r1, r0",
 		"push {r1}",
 
-		"b -2",
-
 		"blx r9",
 		".short 0x8001",
 	});
@@ -345,7 +335,6 @@ TEST(Compiler, SubXorAsh)
 			Bytecode::sub(),
 			Bytecode::aXor(),
 			Bytecode::ash(),
-			Bytecode::ret()
 		}
 	});
 
@@ -367,8 +356,6 @@ TEST(Compiler, SubXorAsh)
 		"pop {r0, r1}",
 		"asrs r1, r0",
 		"push {r1}",
-
-		"b -2",
 
 		"blx r9",
 		".short 0x8001",
@@ -404,19 +391,15 @@ TEST(Compiler, ConsumeFnv)
 		"eors r1, r0",
 		"push {r1}",
 
-		"ldr r0, [pc, #16]",
+		"ldr r0, [pc, #12]",
 		"push {r0}",
 
 		"pop {r0, r1}",
 		"muls r1, r0",
 		"push {r1}",
 
-		"b -2",
-
 		"blx r9",
 		".short 0x8001",
-		"nop",
-
 		".long 0x01000193"
 	});
 }
@@ -463,7 +446,6 @@ TEST(Compiler, PopCount)
 			Bytecode::jslt(0),
 
 			Bytecode::drop(1),
-			Bytecode::ret()
 		}
 	});
 
@@ -539,8 +521,6 @@ TEST(Compiler, PopCount)
 
 		"add sp, #4",
 
-		"b -2",
-
 		"blx r9",
 		".short 0x8001",
 	});
@@ -603,8 +583,6 @@ TEST(Compiler, Abs)
 		"subs r1, r1, r0",
 		"push {r1}",
 
-		"b -2",
-
 		"blx r9",
 		".short 0x8001",
 	});
@@ -661,7 +639,7 @@ TEST(Compiler, Factorial)
 		"movs r0, #1",
 		"push {r0}",
 
-		"b 32",
+		"b 30",
 
 		"ldr r0, [sp, #12]",
 		"push {r0}",
@@ -684,8 +662,6 @@ TEST(Compiler, Factorial)
 		"pop {r0, r1}",
 		"muls r1, r0",
 		"push {r1}",
-
-		"b -2",
 
 		"blx r9",
 		".short 0x8001",

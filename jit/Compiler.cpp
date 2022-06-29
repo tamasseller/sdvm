@@ -47,9 +47,15 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 	const auto frameGapSize = 2;
 
 	uint32_t stackDepth = info.nArgs + frameGapSize;
+	bool emitRetBranch = false;
 
 	for(Bytecode::Instruction isn; reader(isn);)
 	{
+		if(emitRetBranch)
+		{
+			emitRetBranch = false;
+			a.emit(ArmV6::b(end));
+		}
 		switch(isn.g)
 		{
 			case Bytecode::Instruction::OperationGroup::Immediate:
@@ -207,13 +213,19 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 				a.emit(ArmV6::add(r, ArmV6::AnyReg(10)));
 				a.emit(ArmV6::ldr(s, r, ArmV6::Uoff<2, 5>(0)));
 				a.emit(ArmV6::blx(s));
+
+				assert(isn.call.nArgs <= stackDepth);
+
 				stackDepth += isn.call.nRet - isn.call.nArgs;
+
 				break;
 			}
 			case Bytecode::Instruction::OperationGroup::Return:
 			{
 				// TODO do all lazy calculations here and write result in a PCS compatible manner.
-				a.emit(ArmV6::b(end));
+				emitRetBranch = true;
+
+				assert(info.nRet <= stackDepth);
 				stackDepth -= info.nRet;
 				break;
 			}
