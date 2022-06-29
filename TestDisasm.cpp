@@ -5,8 +5,11 @@
 
 TEST_GROUP(DisAsm)
 {
-	static std::string single(uint16_t isn)
+	static std::string single(uint16_t arg)
 	{
+		uint16_t isn alignas(uint32_t);
+		isn = arg;
+
 		auto ret = Disassembler::disassemble(&isn, &isn + 1);
 		CHECK(ret.size() == 1);
 		return ret[0];
@@ -156,7 +159,7 @@ TEST(DisAsm, Branch)
 
 TEST(DisAsm, VmTab)
 {
-	uint16_t code[2];
+	uint16_t code[2] alignas(uint32_t);
 	Assembler a(code, 2, nullptr, 0);
 	a.vmTab(0x1234);
 	auto end = a.assemble();
@@ -166,4 +169,22 @@ TEST(DisAsm, VmTab)
 	CHECK(res.size() == 2);
 	CHECK(res[0] == "blx r9");
 	CHECK(res[1] == ".short 0x1234");
+}
+
+TEST(DisAsm, Literal)
+{
+	uint16_t code[6] alignas(uint32_t);
+	Assembler a(code, 6, nullptr, 0);
+	a.emit(ArmV6::ldrPc(ArmV6::LoReg(3), a.literal(0x13337)));
+	a.emit(ArmV6::addPc(ArmV6::LoReg(7), a.literal(0xc007c0de)));
+	auto end = a.assemble();
+	CHECK(end == code + 6);
+
+	auto res = Disassembler::disassemble(code, end);
+	CHECK(res.size() == 4);
+
+	CHECK(res[0] == "ldr r3, [pc, #0]");
+	CHECK(res[1] == "add r7, pc, #4");
+	CHECK(res[2] == ".long 0x00013337");
+	CHECK(res[3] == ".long 0xc007c0de");
 }

@@ -7,7 +7,7 @@ struct Bytecode
 {
 	struct FunctionInfo
 	{
-		uint32_t nLabels, nRet;
+		uint32_t nLabels, nArgs, nRet;
 		bool hasNonTailCall;
 	};
 
@@ -27,7 +27,7 @@ struct Bytecode
 
 		enum class BinaryOperation
 		{
-			Add, Sub, Mul, Div, Mod, And, Ior, Xor, Lsh, Rsh, Ash
+			Add, Sub, And, Ior, Xor, Lsh, Rsh, Ash, Mul, Div, Mod
 		};
 
 		enum class Condition
@@ -39,16 +39,9 @@ struct Bytecode
 			SignedLess, SignedNotLess
 		};
 
-		OperationGroup g;
-
-		enum class DupDirection
+		enum class MoveOperation
 		{
-			In, Out
-		};
-
-		enum class DupTarget
-		{
-			Arg, Stack
+			Pull, Shove, Drop
 		};
 
 		struct Immediate
@@ -79,15 +72,16 @@ struct Bytecode
 
 		struct Move
 		{
-			DupDirection dir;
-			DupTarget target;
-			uint32_t idx;
+			MoveOperation op;
+			uint32_t param;
 		};
 
 		struct Call
 		{
 			uint32_t nArgs, nRet;
 		};
+
+		OperationGroup g;
 
 		union
 		{
@@ -159,17 +153,16 @@ struct Bytecode
 		return ret;
 	}
 
-	static inline constexpr auto move(Instruction::DupDirection dir, Instruction::DupTarget target, uint32_t idx)
+	static inline constexpr auto move(Instruction::MoveOperation op, uint32_t idx)
 	{
 		auto ret = Instruction{.g = Instruction::OperationGroup::Move};
-		ret.move = Instruction::Move{.dir = dir, .target = target, .idx = idx};
+		ret.move = Instruction::Move{.op = op, .param = idx};
 		return ret;
 	}
 
-	static inline constexpr auto ldArg(uint32_t idx) { return move(Instruction::DupDirection::In,  Instruction::DupTarget::Arg, idx); }
-	static inline constexpr auto ldLoc(uint32_t idx) { return move(Instruction::DupDirection::In,  Instruction::DupTarget::Stack, idx); }
-	static inline constexpr auto stArg(uint32_t idx) { return move(Instruction::DupDirection::Out, Instruction::DupTarget::Arg, idx); }
-	static inline constexpr auto stLoc(uint32_t idx) { return move(Instruction::DupDirection::Out, Instruction::DupTarget::Stack, idx); }
+	static inline constexpr auto pull(uint32_t idx) { return move(Instruction::MoveOperation::Pull, idx); }
+	static inline constexpr auto shove(uint32_t idx) { return move(Instruction::MoveOperation::Shove, idx); }
+	static inline constexpr auto drop(uint32_t count) { return move(Instruction::MoveOperation::Drop, count); }
 
 	static inline constexpr auto call(uint32_t nArgs, uint32_t nRet)
 	{

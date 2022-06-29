@@ -119,12 +119,12 @@ TEST(Compiler, Square)
 	{
 		Bytecode::FunctionInfo{
 			.nLabels = 0,
+			.nArgs = 1,
 			.nRet = 1,
 			.hasNonTailCall = false
 		},
 		{
-			Bytecode::ldArg(0),
-			Bytecode::ldLoc(0),
+			Bytecode::pull(0),
 			Bytecode::mul(),
 			Bytecode::ret()
 		}
@@ -137,10 +137,7 @@ TEST(Compiler, Square)
 		".short 0x0000",
 		"add pc, lr",
 
-		"ldr r0, [sp, #8]",
-		"push {r0}",
-
-		"ldr r0, [sp, #4]",
+		"ldr r0, [sp, #12]",
 		"push {r0}",
 
 		"pop {r0, r1}",
@@ -160,11 +157,11 @@ TEST(Compiler, AddThree)
 	{
 		Bytecode::FunctionInfo{
 			.nLabels = 0,
+			.nArgs = 1,
 			.nRet = 1,
 			.hasNonTailCall = false
 		},
 		{
-			Bytecode::ldArg(0),
 			Bytecode::immediate(3),
 			Bytecode::add(),
 			Bytecode::ret()
@@ -177,9 +174,6 @@ TEST(Compiler, AddThree)
 		"blx r9",
 		".short 0x0000",
 		"add pc, lr",
-
-		"ldr r0, [sp, #8]",
-		"push {r0}",
 
 		"movs r0, #3",
 		"push {r0}",
@@ -201,11 +195,11 @@ TEST(Compiler, Add1024Times400GreaterThanNegative100)
 	{
 		Bytecode::FunctionInfo{
 			.nLabels = 1,
+			.nArgs = 1,
 			.nRet = 1,
 			.hasNonTailCall = false
 		},
 		{
-			Bytecode::ldArg(0),
 			Bytecode::immediate(1024),
 			Bytecode::add(),
 			Bytecode::immediate(400),
@@ -226,9 +220,6 @@ TEST(Compiler, Add1024Times400GreaterThanNegative100)
 		"blx r9",
 		".short 0x0000",
 		"add pc, lr",
-
-		"ldr r0, [sp, #8]",
-		"push {r0}",
 
 		"movs r0, #1",
 		"lsls r0, r0, #10",
@@ -275,17 +266,18 @@ TEST(Compiler, SetLowByte)
 	{
 		Bytecode::FunctionInfo{
 			.nLabels = 0,
+			.nArgs = 1,
 			.nRet = 1,
 			.hasNonTailCall = false
 		},
 		{
-			Bytecode::ldArg(0),
+			Bytecode::pull(0),
 			Bytecode::immediate(8),
 			Bytecode::rsh(),
 			Bytecode::immediate(8),
 			Bytecode::lsh(),
 
-			Bytecode::ldArg(1),
+			Bytecode::pull(1),
 			Bytecode::immediate(0xff),
 			Bytecode::aAnd(),
 
@@ -301,7 +293,7 @@ TEST(Compiler, SetLowByte)
 		".short 0x0000",
 		"add pc, lr",
 
-		"ldr r0, [sp, #8]",
+		"ldr r0, [sp, #12]",
 		"push {r0}",
 
 		"movs r0, #8",
@@ -318,7 +310,7 @@ TEST(Compiler, SetLowByte)
 		"lsls r1, r0",
 		"push {r1}",
 
-		"ldr r0, [sp, #16]",
+		"ldr r0, [sp, #12]",
 		"push {r0}",
 
 		"movs r0, #255",
@@ -345,14 +337,11 @@ TEST(Compiler, SubXorAsh)
 	{
 		Bytecode::FunctionInfo{
 			.nLabels = 0,
+			.nArgs = 4,
 			.nRet = 1,
 			.hasNonTailCall = false
 		},
 		{
-			Bytecode::ldArg(0),
-			Bytecode::ldArg(1),
-			Bytecode::ldArg(2),
-			Bytecode::ldArg(3),
 			Bytecode::sub(),
 			Bytecode::aXor(),
 			Bytecode::ash(),
@@ -366,18 +355,6 @@ TEST(Compiler, SubXorAsh)
 		"blx r9",
 		".short 0x0000",
 		"add pc, lr",
-
-		"ldr r0, [sp, #8]",
-		"push {r0}",
-
-		"ldr r0, [sp, #16]",
-		"push {r0}",
-
-		"ldr r0, [sp, #24]",
-		"push {r0}",
-
-		"ldr r0, [sp, #32]",
-		"push {r0}",
 
 		"pop {r0, r1}",
 		"subs r1, r1, r0",
@@ -395,6 +372,53 @@ TEST(Compiler, SubXorAsh)
 
 		"blx r9",
 		".short 0x8001",
+	});
+}
+
+
+TEST(Compiler, ConsumeFnv)
+{
+	auto result = compile(MockFunction
+	{
+		Bytecode::FunctionInfo{
+			.nLabels = 0,
+			.nArgs = 2,
+			.nRet = 1,
+			.hasNonTailCall = false
+		},
+		{
+			Bytecode::aXor(),
+			Bytecode::immediate(16777619),
+			Bytecode::mul(),
+			Bytecode::ret()
+		}
+	});
+
+	checkCodeIs(result,
+	{
+		"mov r0, lr",
+		"blx r9",
+		".short 0x0000",
+		"add pc, lr",
+
+		"pop {r0, r1}",
+		"eors r1, r0",
+		"push {r1}",
+
+		"ldr r0, [pc, #16]",
+		"push {r0}",
+
+		"pop {r0, r1}",
+		"muls r1, r0",
+		"push {r1}",
+
+		"b -2",
+
+		"blx r9",
+		".short 0x8001",
+		"nop",
+
+		".long 0x01000193"
 	});
 }
 

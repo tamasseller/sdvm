@@ -33,7 +33,6 @@ static inline void summonImmediate(Assembler& a, ArmV6::LoReg target, uint32_t v
 
 uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::FunctionInfo& info, Bytecode::InstructionStreamReader& reader)
 {
-	uint32_t stackDepth = 0;
 	uint32_t labelIdx = 0;
 
 	Assembler::LabelInfo labels[info.nLabels + 1];
@@ -46,6 +45,8 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 	a.emit(ArmV6::add(ArmV6::AnyReg(15), ArmV6::AnyReg(14))); 		// add pc, lr
 
 	const auto frameGapSize = 2;
+
+	uint32_t stackDepth = info.nArgs + frameGapSize;
 
 	for(Bytecode::Instruction isn; reader(isn);)
 	{
@@ -70,64 +71,46 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 
 				a.emit(ArmV6::pop(ArmV6::LoRegs{}.add(m).add(nd))); // TODO lazy
 
-				switch(isn.bin.op)
+				if(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Sub)
 				{
-					case Bytecode::Instruction::BinaryOperation::Add:
-					{
-						a.emit(ArmV6::adds(nd, nd, m));
-						break;
-					}
-					case Bytecode::Instruction::BinaryOperation::Sub:
-					{
-						a.emit(ArmV6::subs(nd, nd, m));
+					const auto idx = (int)isn.bin.op - (int)Bytecode::Instruction::BinaryOperation::Add;
 
-						break;
-					}
-					case Bytecode::Instruction::BinaryOperation::Mul:
+					static constexpr const ArmV6::Reg3Op opLookup[] =
 					{
-						a.emit(ArmV6::muls(nd, m));
-						break;
-					}
-					case Bytecode::Instruction::BinaryOperation::Div:
+						/* Add */ ArmV6::Reg3Op::ADDREG,
+						/* Sub */ ArmV6::Reg3Op::SUBREG,
+					};
+
+					a.emit(ArmV6::fmtReg3(opLookup[idx], nd.idx, nd.idx, m.idx));
+				}
+				else if(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Mul)
+				{
+					const auto idx = (int)isn.bin.op - (int)Bytecode::Instruction::BinaryOperation::And;
+
+					static constexpr const ArmV6::Reg2Op opLookup[] =
 					{
-						// TODO add vmcall via "bx r9; .short <id>"
-						break;
-					}
-					case Bytecode::Instruction::BinaryOperation::Mod:
+						/* And */ ArmV6::Reg2Op::AND,
+						/* Ior */ ArmV6::Reg2Op::ORR,
+						/* Xor */ ArmV6::Reg2Op::EOR,
+						/* Lsh */ ArmV6::Reg2Op::LSL,
+						/* Rsh */ ArmV6::Reg2Op::LSR,
+						/* Ash */ ArmV6::Reg2Op::ASR,
+						/* Mul */ ArmV6::Reg2Op::MUL,
+					};
+
+					a.emit(ArmV6::fmtReg2(opLookup[idx], nd.idx, m.idx));
+				}
+				else
+				{
+					assert(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Mod);
+					const auto idx = (int)isn.bin.op - (int)Bytecode::Instruction::BinaryOperation::Div;
+
+					static constexpr const uint16_t controlValueLookup[] =
 					{
-						// TODO add vmcall via "bx r9; .short <id>"
-						break;
-					}
-					case Bytecode::Instruction::BinaryOperation::And:
-					{
-						a.emit(ArmV6::ands(nd, m));
-						break;
-					}
-					case Bytecode::Instruction::BinaryOperation::Ior:
-					{
-						a.emit(ArmV6::orrs(nd, m));
-						break;
-					}
-					case Bytecode::Instruction::BinaryOperation::Xor:
-					{
-						a.emit(ArmV6::eors(nd, m));
-						break;
-					}
-					case Bytecode::Instruction::BinaryOperation::Lsh:
-					{
-						a.emit(ArmV6::lsls(nd, m));
-						break;
-					}
-					case Bytecode::Instruction::BinaryOperation::Rsh:
-					{
-						a.emit(ArmV6::lsrs(nd, m));
-						break;
-					}
-					case Bytecode::Instruction::BinaryOperation::Ash:
-					{
-						a.emit(ArmV6::asrs(nd, m));
-						break;
-					}
+						// TODO NYET
+					};
+
+					a.vmTab(controlValueLookup[idx]);
 				}
 
 				a.emit(ArmV6::push(ArmV6::LoRegs{}.add(nd))); // TODO lazy pushing
@@ -178,37 +161,33 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 			case Bytecode::Instruction::OperationGroup::Move:
 			{
 				const auto r = ArmV6::LoReg(0);
-				ArmV6::Uoff<2, 8> offset;
 
-				switch(isn.move.target)
+				switch(isn.move.op)
 				{
-					case Bytecode::Instruction::DupTarget::Arg:
+					case Bytecode::Instruction::MoveOperation::Pull:
 					{
-						offset = (stackDepth + frameGapSize + isn.move.idx) << 2;
-						break;
-					}
-					case Bytecode::Instruction::DupTarget::Stack:
-					{
-						assert(isn.move.idx < stackDepth);
-						offset = (stackDepth - isn.move.idx) << 2;
-						break;
-					}
-				}
-
-				switch(isn.move.dir)
-				{
-					case Bytecode::Instruction::DupDirection::In:
-					{
+						assert(isn.move.param < stackDepth);
+						ArmV6::Uoff<2, 8> offset = (stackDepth - isn.move.param) << 2;
 						a.emit(ArmV6::ldrSp(r, offset));
 						a.emit(ArmV6::push(ArmV6::LoRegs{}.add(r)));
 						stackDepth++;
 						break;
 					}
-					case Bytecode::Instruction::DupDirection::Out:
+					case Bytecode::Instruction::MoveOperation::Shove:
 					{
 						a.emit(ArmV6::pop(ArmV6::LoRegs{}.add(r)));
-						a.emit(ArmV6::strSp(r, offset));
 						stackDepth--;
+						assert(isn.move.param < stackDepth);
+
+						ArmV6::Uoff<2, 8> offset = (stackDepth - isn.move.param) << 2;
+						a.emit(ArmV6::strSp(r, offset));
+						break;
+					}
+					case Bytecode::Instruction::MoveOperation::Drop:
+					{
+						assert(isn.move.param < stackDepth);
+						stackDepth -= isn.move.param;
+						a.emit(ArmV6::incrSp(isn.move.param << 2));
 						break;
 					}
 				}

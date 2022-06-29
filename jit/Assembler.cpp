@@ -27,6 +27,24 @@ void Assembler::vmTab(uint16_t isn)
 	*nextIsn++ = isn;
 }
 
+/// Calculate the jump offset for branch instructions.
+inline intptr_t Assembler::getBranchOffset(uint16_t *pInstr, uint8_t idx) const
+{
+	assert(idx < nLabels);	// GCOV_EXCL_LINE
+
+	// The offset needs to be calculated against the current instruction plus 4 bytes.
+	return (char*)(startIsns + labels[idx].offset) - (char*)(pInstr + 2);
+}
+
+/// Calculate the PC-relative offset to be used to access a literal from an instruction.
+inline uintptr_t Assembler::getLiteralOffset(uint16_t *pInstr, uint32_t *lit)
+{
+	assert(pInstr < (void*)lit);
+
+	// The offset needs to be calculated against the word-aligned PC (which is the current instruction plus 4 bytes).
+	return (uintptr_t)((char*)lit - (char*)(((uintptr_t)pInstr + 4) & ~3));
+}
+
 uint16_t* Assembler::assemble()
 {
 	// First go through the whole body and look for conditional branches and choose between the single instruction
@@ -188,5 +206,5 @@ uint16_t* Assembler::assemble()
 		}
 	}
 
-	return (uint16_t*)nextIsn + nLit;
+	return (uint16_t*)nextIsn + (nLit << 1);
 }

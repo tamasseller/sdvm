@@ -90,7 +90,6 @@ struct ArmV6
 		}
 	};
 
-protected:
 	enum class Reg2Op: uint16_t
 	{
 		//            opcode  m   dn
@@ -254,7 +253,6 @@ protected:
 		return 0b11000'00000000000 | ((uint16_t)load << 11) | ((uint16_t)n << 8) | regFlags;
 	}
 
-public:
 	static inline uint16_t ands (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::AND,  dn.idx, m.idx); }
 	static inline uint16_t eors (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::EOR,  dn.idx, m.idx); }
 	static inline uint16_t lsls (LoReg dn, LoReg m) { return fmtReg2(Reg2Op::LSL,  dn.idx, m.idx); }

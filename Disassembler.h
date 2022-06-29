@@ -99,13 +99,17 @@ class Disassembler: ArmV6
 	}
 
 public:
-	static std::vector<std::string> disassemble(uint16_t *from, uint16_t *to)
+	static std::vector<std::string> disassemble(const uint16_t *const from, const uint16_t *const to)
 	{
+		assert((((uintptr_t)from) & 3) == 0);
+
 		std::vector<std::string> ret;
 
-		while(from != to)
+		const uint16_t *literalPoolStart = to;
+
+		for(const uint16_t *it = from; it < literalPoolStart; it++)
 		{
-			auto isn = *from++;
+			auto isn = *it;
 
 			switch(isn >> 6)
 			{
@@ -346,9 +350,11 @@ public:
 				continue;
 			case (uint16_t)Imm8Op::LDR >> 11:
 				ret.push_back(displayImm8s("ldr", "pc", isn, true));
+				literalPoolStart = std::min(literalPoolStart, (const uint16_t*)((((uintptr_t)it + 4) & ~3) + ((isn & 0xff) << 2)));
 				continue;
 			case (uint16_t)Imm8Op::ADR >> 11:
 				ret.push_back(displayImm8s("add", "pc", isn, false));
+				literalPoolStart = std::min(literalPoolStart, (const uint16_t*)((((uintptr_t)it + 4) & ~3) + ((isn & 0xff) << 2)));
 				continue;
 			case (uint16_t)Imm8Op::ADDSP >> 11:
 				ret.push_back(displayImm8s("add", "sp", isn, false));
@@ -423,13 +429,26 @@ public:
 
 						if(m == 9)
 						{
-							assert(from != to);
+							assert((it + 1) < literalPoolStart);
 							std::stringstream ss;
-							ss << ".short 0x" << std::hex << std::setw(4) << std::setfill('0') << (uint32_t)*from++;
+							ss << ".short 0x" << std::hex << std::setw(4) << std::setfill('0') << (uint32_t)*++it;
 							ret.push_back(ss.str());
 						}
 					}
 					continue;
+			}
+		}
+
+		if(literalPoolStart != to)
+		{
+			assert((((uintptr_t)literalPoolStart) & 3) == 0);
+			assert((((uintptr_t)to) & 3) == 0);
+
+			for(const uint32_t * lIt = (const uint32_t *)literalPoolStart; lIt != (const uint32_t *)to; lIt++)
+			{
+				std::stringstream ss;
+				ss << ".long 0x" << std::hex << std::setw(8) << std::setfill('0') << (uint32_t)*lIt;
+				ret.push_back(ss.str());
 			}
 		}
 
