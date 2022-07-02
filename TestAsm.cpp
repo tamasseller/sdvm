@@ -309,3 +309,29 @@ TEST(Asm, InlineLiteralAgainstBranchAndLiteral)
 	CHECK(code[10] == 0xf00d); // .word 0x1337f00d
 	CHECK(code[11] == 0x1337);
 }
+
+TEST(Asm, StrayNops)
+{
+	uint16_t code[10] alignas(4);
+	Assembler::LabelInfo labels[1];
+	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
+
+	Assembler::Label g(0);
+	a.emit(ArmV6::nop());
+	a.emit(ArmV6::cmp(r0, r1));
+	a.emit(ArmV6::nop());
+	a.emit(ArmV6::bne(g));
+	a.emit(ArmV6::nop());
+	a.emit(ArmV6::ldrPc(r0, a.literal(0x12345678u)));
+	a.pin(g);
+	a.emit(ArmV6::nop());
+
+	CHECK(a.assemble() - code == 6);
+
+	CHECK(code[0] == 0x4288); // cmp r0, r1
+	CHECK(code[1] == 0xd100); // bne.n 6 <g>
+	CHECK(code[2] == 0x4800); // adds r0, #1
+	CHECK(code[3] == 0xbf00);
+	CHECK(code[4] == 0x5678);
+	CHECK(code[5] == 0x1234);
+}

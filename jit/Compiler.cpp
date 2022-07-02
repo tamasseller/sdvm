@@ -4,6 +4,8 @@
 #include "Immediate.h"
 #include "Assembler.h"
 
+#include "algorithm/Math.h"
+
 static inline void summonImmediate(Assembler& a, ArmV6::LoReg target, uint32_t value)
 {
 	if(ImmediateFabricationPlan plan; ImmediateFabricationPlan::make(value, plan))
@@ -31,6 +33,180 @@ static inline void summonImmediate(Assembler& a, ArmV6::LoReg target, uint32_t v
 	}
 }
 
+struct StackState
+{
+	/*
+	 *                    Newly calculated
+	 *                            |
+	 *  In-memory argument        |           Register argument
+	 *         |                  |                  |
+	 *         V                  V                  V
+	 *    .--------.   load    .-----.   shove    .-----.
+	 *   | Unloaded | ------> | Clean | -------> | Dirty |
+	 *    '--------'           '-----'  <-------  '-----'
+	 *                                   spill
+	 *
+	 *
+	 */
+	enum class ValueStatus
+	{
+		Empty,		// There is no value associated with this slot.
+		Unloaded, 	// The value resides in the associated memory location.
+		Clean,    	// The value is loaded into the corresponding register.
+		Dirty,    	// The corresponding register contains a new value that is not yet written in memory.
+	};
+
+	struct ValuePlacement
+	{
+		ValueStatus status;
+	};
+
+	ValuePlacement topEight[8];
+	const uint32_t nArgs;
+	uint32_t stackDepth;
+	uint32_t maxStack = 0;
+	uint8_t usedCsRegs = 0;
+
+
+	StackState(uint32_t nArgs): nArgs(nArgs), stackDepth(nArgs)
+	{
+		for(auto i = 0u; i < pet::min(nArgs, uint32_t(4u)); i++)
+		{
+			topEight[i].status = ValueStatus::Dirty;
+		}
+
+		for(auto i = nArgs; i < 8u; i++)
+		{
+			topEight[i].status = ValueStatus::Empty;
+		}
+	}
+
+	ArmV6::LoReg allocate(Assembler& a)
+	{
+		const auto idx = stackDepth++;
+		const auto ret = idx  % 8;
+		maxStack = pet::max(maxStack, stackDepth);
+
+		switch(topEight[ret].status)
+		{
+		case ValueStatus::Empty:
+			usedCsRegs |= (1 << idx);
+			break;
+		case ValueStatus::Unloaded:
+		case ValueStatus::Clean:
+			break;
+		case ValueStatus::Dirty:
+			a.emit(ArmV6::strSp(ArmV6::LoReg(ret), (nArgs - idx) << 2));
+			break;
+		}
+
+		topEight[ret].status = ValueStatus::Dirty;
+
+		return ArmV6::LoReg(ret);
+	}
+
+	ArmV6::LoReg consume(Assembler& a)
+	{
+		assert(0 < stackDepth);
+
+		const auto idx = --stackDepth;
+		const auto ret = idx  % 8;
+
+		switch(topEight[ret].status)
+		{
+		case ValueStatus::Empty:
+			assert(false);
+			break;
+		case ValueStatus::Unloaded:
+			a.emit(ArmV6::ldrSp(ArmV6::LoReg(ret), (nArgs - idx) << 2));
+			break;
+		case ValueStatus::Clean:
+		case ValueStatus::Dirty:
+			break;
+		}
+
+		topEight[ret].status = (7 < idx) ? ValueStatus::Unloaded : ValueStatus::Empty;
+
+		return ArmV6::LoReg(ret);
+	}
+
+	ArmV6::LoReg replace(Assembler& a)
+	{
+		assert(0 < stackDepth);
+
+		const auto idx = stackDepth - 1;
+		const auto ret = idx  % 8;
+
+		switch(topEight[ret].status)
+		{
+		case ValueStatus::Empty:
+			assert(false);
+			break;
+		case ValueStatus::Unloaded:
+			a.emit(ArmV6::ldrSp(ArmV6::LoReg(ret), (nArgs - idx) << 2));
+			break;
+		case ValueStatus::Clean:
+		case ValueStatus::Dirty:
+			break;
+		}
+
+		topEight[ret].status = ValueStatus::Dirty;
+
+		return ArmV6::LoReg(ret);
+	}
+
+	void pull(Assembler& a, ArmV6::LoReg reg, uint32_t idx)
+	{
+		assert(idx < stackDepth);
+
+		if(stackDepth < idx + 8)
+		{
+			const auto src = idx % 8;
+			switch(topEight[src].status)
+			{
+			case ValueStatus::Empty:
+				assert(false);
+				break;
+			case ValueStatus::Unloaded:
+				break;
+			case ValueStatus::Clean:
+			case ValueStatus::Dirty:
+				a.emit(ArmV6::mov(reg, ArmV6::LoReg(src)));
+				return;
+			}
+		}
+
+		a.emit(ArmV6::ldrSp(reg, (nArgs - idx) << 2));
+	}
+
+	void shove(Assembler& a, ArmV6::LoReg reg, uint32_t idx)
+	{
+		assert(idx < stackDepth);
+
+		if(stackDepth < idx + 8)
+		{
+			const auto dst = idx % 8;
+			topEight[dst].status = ValueStatus::Dirty;
+			a.emit(ArmV6::mov(ArmV6::LoReg(dst), reg));
+			return;
+		}
+
+		a.emit(ArmV6::strSp(reg, (nArgs - idx) << 2));
+	}
+
+	void drop(uint32_t n)
+	{
+		assert(n <= stackDepth);
+
+		while(n--)
+		{
+			const auto idx = --stackDepth;
+			const auto ret = idx % 8;
+			topEight[ret].status = (7 < idx) ? ValueStatus::Unloaded : ValueStatus::Empty;
+		}
+	}
+};
+
 uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::FunctionInfo& info, Bytecode::InstructionStreamReader& reader)
 {
 	uint32_t labelIdx = 0;
@@ -40,13 +216,21 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 	Assembler a(out.start, out.length, labels, info.nLabels + 1);
 
 	// TODO optimize leafs
-	a.emit(ArmV6::mov(ArmV6::AnyReg(0), ArmV6::AnyReg(14))); 		// mov r0, lr
-	a.vmTab((VMTAB_ENTER_NON_LEAF_INDEX << VMTAB_SHIFT) | fnIdx); 	// blx r9; .short <param>
-	a.emit(ArmV6::add(ArmV6::AnyReg(15), ArmV6::AnyReg(14))); 		// add pc, lr
+	const auto startPtr = a.getPtr();
+	a.emit(ArmV6::mov(ArmV6::AnyReg(0), ArmV6::AnyReg(14)));
+	a.vmTab((VMTAB_ENTER_NON_LEAF_INDEX << VMTAB_SHIFT) | fnIdx);
 
-	const auto frameGapSize = 2;
+	const auto resumePtr = a.getPtr();
+	a.emit(ArmV6::add(ArmV6::AnyReg(15), ArmV6::AnyReg(14)));
 
-	uint32_t stackDepth = info.nArgs + frameGapSize;
+	assert((char*)resumePtr - (char*)startPtr == RESUME_OFFSET);
+
+	// 	const auto incSpPtr1 = a.getPtr(); a.emit(ArmV6::nop());
+	// 	const auto pushCsRegPtr = a.getPtr(); a.emit(ArmV6::nop());
+	// 	const auto incSpPtr2 = a.getPtr(); a.emit(ArmV6::nop());
+
+	StackState ss(info.nArgs);
+
 	bool emitRetBranch = false;
 
 	for(Bytecode::Instruction isn; reader(isn);)
@@ -60,22 +244,14 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 		{
 			case Bytecode::Instruction::OperationGroup::Immediate:
 			{
-				const auto value = isn.imm.value;
-				const auto target = ArmV6::LoReg(0); // TODO lazy pushing and allocation
-
-				summonImmediate(a, target, value);
-
-				a.emit(ArmV6::push(ArmV6::LoRegs{}.add(target))); // TODO lazy pushing
-				stackDepth++;
+				summonImmediate(a, ss.allocate(a), isn.imm.value);
 				break;
 			}
 
 			case Bytecode::Instruction::OperationGroup::Binary:
 			{
-				const auto m = ArmV6::LoReg(0);
-				const auto nd = ArmV6::LoReg(1); // TODO lazy pushing and allocation
-
-				a.emit(ArmV6::pop(ArmV6::LoRegs{}.add(m).add(nd))); // TODO lazy
+				const auto m = ss.consume(a);
+				const auto nd = ss.replace(a);
 
 				if(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Sub)
 				{
@@ -121,16 +297,12 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 					/* GCOV_EXCL_STOP */
 				}
 
-				a.emit(ArmV6::push(ArmV6::LoRegs{}.add(nd))); // TODO lazy pushing
-				stackDepth -= 1;
 				break;
 			}
 			case Bytecode::Instruction::OperationGroup::Conditional:
 			{
-				const auto m = ArmV6::LoReg(0); // TODO lazy pushing and allocation
-				const auto n = ArmV6::LoReg(1);
-
-				a.emit(ArmV6::pop(ArmV6::LoRegs{}.add(m).add(n))); // TODO lazy
+				const auto m = ss.consume(a);
+				const auto n = ss.consume(a);
 
 				a.emit(ArmV6::cmp(n, m));
 
@@ -149,21 +321,22 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 				};
 
 				assert((size_t)isn.cond.cond < sizeof(condLookup));
-
 				a.emit(ArmV6::condBranch(condLookup[(size_t)isn.cond.cond], Assembler::Label(isn.cond.targetIdx)));
-				stackDepth -= 2; // TODO reconcile laziness: check target and save if first jump, manifest stored state if not.
+
 				break;
 			}
 			case Bytecode::Instruction::OperationGroup::Jump:
 			{
 				a.emit(ArmV6::b(Assembler::Label(isn.jump.targetIdx)));
 
-				// TODO reconcile laziness: check target and save if first jump, manifest stored state if not.
+				// TODO reconcile laziness: check target and save if state is not set, apply stored state if it is.
 				break;
 			}
 			case Bytecode::Instruction::OperationGroup::Label:
 			{
-				stackDepth += isn.label.stackAdjustment;
+				// TODO reconcile laziness: check target and store state if not set already, apply stored state if it is.
+				// TODO apply isn.label.stackAdjustment;
+
 				a.pin(Assembler::Label(labelIdx++));
 				break;
 			}
@@ -175,28 +348,17 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 				{
 					case Bytecode::Instruction::MoveOperation::Pull:
 					{
-						assert(isn.move.param < stackDepth);
-						ArmV6::Uoff<2, 8> offset = (stackDepth - isn.move.param) << 2;
-						a.emit(ArmV6::ldrSp(r, offset));
-						a.emit(ArmV6::push(ArmV6::LoRegs{}.add(r)));
-						stackDepth++;
+						ss.pull(a, ss.allocate(a), isn.move.param);
 						break;
 					}
 					case Bytecode::Instruction::MoveOperation::Shove:
 					{
-						a.emit(ArmV6::pop(ArmV6::LoRegs{}.add(r)));
-						stackDepth--;
-						assert(isn.move.param < stackDepth);
-
-						ArmV6::Uoff<2, 8> offset = (stackDepth - isn.move.param) << 2;
-						a.emit(ArmV6::strSp(r, offset));
+						ss.shove(a, ss.consume(a), isn.move.param);
 						break;
 					}
 					case Bytecode::Instruction::MoveOperation::Drop:
 					{
-						assert(isn.move.param < stackDepth);
-						stackDepth -= isn.move.param;
-						a.emit(ArmV6::incrSp(isn.move.param << 2));
+						ss.drop(isn.move.param);
 						break;
 					}
 				}
@@ -214,9 +376,9 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 				a.emit(ArmV6::ldr(s, r, ArmV6::Uoff<2, 5>(0)));
 				a.emit(ArmV6::blx(s));
 
-				assert(isn.call.nArgs <= stackDepth);
-
-				stackDepth += isn.call.nRet - isn.call.nArgs;
+//				assert(isn.call.nArgs <= stackDepth);
+//
+//				stackDepth += isn.call.nRet - isn.call.nArgs;
 
 				break;
 			}
@@ -225,8 +387,8 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 				// TODO do all lazy calculations here and write result in a PCS compatible manner.
 				emitRetBranch = true;
 
-				assert(info.nRet <= stackDepth);
-				stackDepth -= info.nRet;
+//				assert(info.nRet <= stackDepth);
+//				stackDepth -= info.nRet;
 				break;
 			}
 		}

@@ -5,4 +5,6 @@
 #define VMTAB_ENTER_NON_LEAF_INDEX 0
 #define VMTAB_LEAVE_NON_LEAF_INDEX 1
 
+#define RESUME_OFFSET 6
+
 #endif /* JIT_VMTAB_H_ */

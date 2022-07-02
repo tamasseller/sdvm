@@ -13,7 +13,9 @@
  *    - a single instruction as-is for small offsets: b<cond> <offset> or
  *    - a two instruction sequence for longer jumps:
  *      1. b<!cond> <after-the-next> and then
- *      2. b <offset>.
+ *      2. b <offset>;
+ *  - stack access offset rewriting;
+ *  - nop elimination.
  *
  *  Limitations:
  *   - max. local branch distance is +-2k
@@ -158,6 +160,18 @@ public:
 
 		*--firstLiteral = v;
 		return (uint32_t*)endIsns - firstLiteral - 1;
+	}
+
+	/**
+	 * Get a pointer to the location of the next instruction.
+	 *
+	 * The pointer retrieved this way can be used for simple patching before calling _assemble_. Instruction
+	 * locations are only stable until then, because the assembly process may move things around a bit.
+	 *
+	 * Also only instructions that would not be handled specially by emit should be added this way.
+	 */
+	inline uint16_t* getPtr() const {
+		return nextIsn;
 	}
 
 	/**

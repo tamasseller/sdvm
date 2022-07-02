@@ -39,21 +39,64 @@ inline intptr_t Assembler::getBranchOffset(uint16_t *pInstr, uint8_t idx) const
 /// Calculate the PC-relative offset to be used to access a literal from an instruction.
 inline uintptr_t Assembler::getLiteralOffset(uint16_t *pInstr, uint32_t *lit)
 {
-	assert(pInstr < (void*)lit);
+	assert(pInstr < (void*)lit); // GCOV_EXCL_LINE
 
 	// The offset needs to be calculated against the word-aligned PC (which is the current instruction plus 4 bytes).
 	return (uintptr_t)((char*)lit - (char*)(((uintptr_t)pInstr + 4) & ~3));
 }
 
+/*
+ * The state before the assembly operation is as follows:
+ *
+ *  - All labels are pinned to their desired target location in the input instruction stream.
+ *  - The end of the output area contains the registered literals (in reverse order).
+ *  - The start of the output area is populated with the instruction stream with the following modifications:
+ *     - the offset field of the literal access instructions contains the (reverse) index of the literal in
+ *       the collection at the end of the output area;
+ *     - conditional and unconditional branch instructions contain the index of the label they target in their
+ *       offset field;
+ *     - conditional branch instructions have a placeholder nop after them;
+ *     - there are UDF instructions followed by an inline constant;
+ *
+ *    .-------+-------+-----+-------+---------------+-------+---------+-----+------.
+ *   |  isn 0 | isn 1 | ... | isn N | <empty space> | lit N | lit N-1 | ... | lit 0 |
+ *    '-------+-------+-----+-------+---------------+-------+---------+-----+------'
+ *
+ *  Processing is done in two linear scans over the instruction stream followed by copying of the literals to
+ *  from the far end of the output area to right after the instructions.
+ *
+ *  The first scan compacts the instruction stream, consequently it may change the location of instructions.
+ *  It may rewrite conditional branches as two instructions if the offset is deemed too high based on the
+ *  preliminary value in the input. It also drops any loose nops it finds (which includes the placeholders of
+ *  the untransformed conditional branches). It takes special care not to interpret the inline literals after
+ *  the UDF instructions. Instructions are kept verbatim, changed or dropped but not added, so as to allow
+ *  in-place operation. When an instruction is dropped, labels that point to later instructions are also updated.
+ *
+ *  The second scan does not move instructions around so label offsets and the location of the literal pool are
+ *  stable at this point, so offset of branches and literal accesses can be fixed up. Branch targets are looked
+ *  up from the label table and the correct PC offset is calculated and written in the place of the label index.
+ *  Literal accesses are calculated based on the start address of the literal pool and the index in the offset
+ *  field of the instruction, although the literals are not in their place just yet.
+ *
+ *  Depending on the parity of the length of the instruction stream, the literal pool may need an additional
+ *  padding instruction. If so it is added before copying and reversing the literals, which can be done in a
+ *  single go if the final place of the literal pool and the start of the collected literals (at the far end)
+ *  does not overlap. If there is an overlap then the whole literal collection is first moved to the right
+ *  place and then the order is flipped.
+ */
 uint16_t* Assembler::assemble()
 {
+	// Scan #1
+	//
 	// First go through the whole body and look for conditional branches and choose between the single instruction
 	// direct approach (if the offset is small enough to fit in the 8bit immediate field) or a two instruction
-	// sequence with a 11bit offset field width. The initially emitted extra nop gets removed if the short version
-	// is used, which shrinks the length and consequently lowers the offsets of later jump targets, which may bring
-	// those in the 8bit range, however taking this into account would require multiple passes at its simplest.
-	// Also this phenomenon occurs only if the 8bit offset boundary is just barely crossed, which is expected to be
-	// not that common, so this rare runtime performance optimization opportunity is traded for overall JIT efficiency.
+	// sequence with a 11bit offset field width.
+	//
+	// As nops get removed the offsets of later jump targets get lower, which may bring those in the 8bit range,
+	// however taking this into account would require multiple passes at its simplest. Also this phenomenon occurs
+	// only if the 8bit offset boundary is just barely crossed, which is expected to be not that common in practice,
+	// so this rare runtime performance optimization opportunity is traded for overall JIT efficiency.
+	//
 	uint16_t *o = startIsns;
 
 	for(uint16_t *i = startIsns; i != nextIsn; i++)
@@ -61,12 +104,34 @@ uint16_t* Assembler::assemble()
 		const auto isn = *i;
 		uint16_t idx;
 
-		// Keep udfs and inline literals associated with them intact.
+		// Keep UDFs intact and skip inline literals associated with them.
 		if(isn == ArmV6::udf(0))
 		{
-			*o++ = isn;
 			assert(i < nextIsn); // GCOV_EXCL_LINE
+
+			// Copy UDF.
+			*o++ = isn;
+
+			// Copy literal
 			*o++ = *++i;
+
+			// Skip regular copying.
+			continue;
+		}
+		// Strip nops
+		else if(isn == ArmV6::nop())
+		{
+			// Jump targets that are at higher addresses must be shifted down one instruction.
+			for(auto n = 0u; n < nLabels; n++)
+			{
+				if((o - startIsns) < labels[n].offset)
+				{
+					labels[n].offset--;
+				}
+			}
+
+			// Skip copying.
+			continue;
 		}
 		// Check conditional branches if the offset fits in the 8bit immediate field.
 		else if(ArmV6::getCondBranchOffset(isn, idx))
@@ -74,25 +139,7 @@ uint16_t* Assembler::assemble()
 			assert((i + 1) < (void*)firstLiteral && i[1] == ArmV6::nop());	// GCOV_EXCL_LINE
 			assert(idx < 256);	// GCOV_EXCL_LINE
 
-			// There is another deliberately missed optimization opportunity here: if the offset is positive,
-			// deleting the nop takes the target one instruction closer, so in the corner case when the offset
-			// is one past the limit it could still be done using the short format with the original conditional
-			// branch instruction. But again, it probably does not worth the effort to account for this.
-			if(const auto off = getBranchOffset(o, (uint8_t)idx); ArmV6::Ioff<1, 8>::isInRange(off))
-			{
-				// Keep original instruction and get rid of placeholder nop if the offset fits.
-				*o++ = isn;
-
-				// Jump targets that are at higher addresses must be shifted down one instruction accordingly.
-				for(auto n = 0u; n < nLabels; n++)
-				{
-					if((i - startIsns) < labels[n].offset)
-					{
-						labels[n].offset--;
-					}
-				}
-			}
-			else
+			if(const auto off = getBranchOffset(o, (uint8_t)idx); !ArmV6::Ioff<1, 8>::isInRange(off))
 			{
 				// Change original conditional to inverted condition and special target that will be filled in during the next operation to result in a skip-next behavior.
 				const auto c = ArmV6::getBranchCondtion(isn);
@@ -100,16 +147,17 @@ uint16_t* Assembler::assemble()
 
 				// Add unconditional branch to target (which has wider immediate field).
 				*o++ = ArmV6::b(Label(idx));
-			}
 
-			// Either way, another instruction needs to consumed from the input stream in addition to the original branch.
-			i++;
+				// The placeholder nop needs to consumed from the input stream in addition to the original branch.
+				i++;
+
+				// Skip copying.
+				continue;
+			}
 		}
-		else
-		{
-			// Every other instruction is copied verbatim (for now).
-			*o++ = isn;
-		}
+
+		// Every other instruction is copied verbatim (for now).
+		*o++ = isn;
 	}
 
 	// Update address of last instruction as nops could have been removed.
@@ -118,7 +166,10 @@ uint16_t* Assembler::assemble()
 	// Calculate word-aligned start address of literal pool.
 	auto poolStart = (uint32_t *)(((uintptr_t)nextIsn + 3) & ~3);
 
-	// Fill in branch and literal offsets, replace udfs.
+	// Scan #2
+	//
+	// Fill in branch and literal offsets, replace UDFs.
+	//
 	for(uint16_t *p = startIsns; p != nextIsn; p++)
 	{
 		const auto isn = *p;

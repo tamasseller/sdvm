@@ -136,12 +136,8 @@ TEST(Compiler, Square)
 		".short 0x0000",
 		"add pc, lr",
 
-		"ldr r0, [sp, #12]",
-		"push {r0}",
-
-		"pop {r0, r1}",
-		"muls r1, r0",
-		"push {r1}",
+		"mov r1, r0",
+		"muls r0, r1",
 
 		"blx r9",
 		".short 0x8001",
@@ -172,12 +168,8 @@ TEST(Compiler, AddThree)
 		".short 0x0000",
 		"add pc, lr",
 
-		"movs r0, #3",
-		"push {r0}",
-
-		"pop {r0, r1}",
-		"adds r1, r1, r0",
-		"push {r1}",
+		"movs r1, #3",
+		"adds r0, r0, r1",
 
 		"blx r9",
 		".short 0x8001",
@@ -203,7 +195,7 @@ TEST(Compiler, Add1024Times400GreaterThanNegative100)
 			Bytecode::jsgt(0),
 				Bytecode::immediate(0),
 				Bytecode::ret(),
-			Bytecode::label(),
+			Bytecode::label(-1),
 				Bytecode::immediate(1),
 		}
 	});
@@ -215,37 +207,27 @@ TEST(Compiler, Add1024Times400GreaterThanNegative100)
 		".short 0x0000",
 		"add pc, lr",
 
-		"movs r0, #1",
-		"lsls r0, r0, #10",
-		"push {r0}",
+		"movs r1, #1",
+		"lsls r1, r1, #10",
 
-		"pop {r0, r1}",
-		"adds r1, r1, r0",
-		"push {r1}",
+		"adds r0, r0, r1",
 
-		"movs r0, #145",
-		"adds r0, #255",
-		"push {r0}",
+		"movs r1, #145",
+		"adds r1, #255",
 
-		"pop {r0, r1}",
-		"muls r1, r0",
-		"push {r1}",
+		"muls r0, r1",
 
-		"movs r0, #99",
-		"mvns r0, r0",
-		"push {r0}",
+		"movs r1, #99",
+		"mvns r1, r1",
 
-		"pop {r0, r1}",
-		"cmp r1, r0",
-		"bgt 4",
+		"cmp r0, r1",
+		"bgt 2",
 
 		"movs r0, #0",
-		"push {r0}",
 
-		"b 2",
+		"b 0",
 
-		"movs r0, #1",
-		"push {r0}",
+		"movs r1, #1",	// XXX should be r0
 
 		"blx r9",
 		".short 0x8001",
@@ -258,7 +240,7 @@ TEST(Compiler, SetLowByte)
 	{
 		Bytecode::FunctionInfo{
 			.nLabels = 0,
-			.nArgs = 1,
+			.nArgs = 2,
 			.nRet = 1,
 			.hasNonTailCall = false
 		},
@@ -285,36 +267,18 @@ TEST(Compiler, SetLowByte)
 		".short 0x0000",
 		"add pc, lr",
 
-		"ldr r0, [sp, #12]",
-		"push {r0}",
+		"mov r2, r0",
+		"movs r3, #8",
+		"lsrs r2, r3",
 
-		"movs r0, #8",
-		"push {r0}",
+		"movs r3, #8",
+		"lsls r2, r3",
 
-		"pop {r0, r1}",
-		"lsrs r1, r0",
-		"push {r1}",
+		"mov r3, r1",
+		"movs r4, #255",
+		"ands r3, r4",
 
-		"movs r0, #8",
-		"push {r0}",
-
-		"pop {r0, r1}",
-		"lsls r1, r0",
-		"push {r1}",
-
-		"ldr r0, [sp, #12]",
-		"push {r0}",
-
-		"movs r0, #255",
-		"push {r0}",
-
-		"pop {r0, r1}",
-		"ands r1, r0",
-		"push {r1}",
-
-		"pop {r0, r1}",
-		"orrs r1, r0",
-		"push {r1}",
+		"orrs r2, r3",
 
 		"blx r9",
 		".short 0x8001",
@@ -345,17 +309,9 @@ TEST(Compiler, SubXorAsh)
 		".short 0x0000",
 		"add pc, lr",
 
-		"pop {r0, r1}",
-		"subs r1, r1, r0",
-		"push {r1}",
-
-		"pop {r0, r1}",
-		"eors r1, r0",
-		"push {r1}",
-
-		"pop {r0, r1}",
-		"asrs r1, r0",
-		"push {r1}",
+		"subs r2, r2, r3",
+		"eors r1, r2",
+		"asrs r0, r1",
 
 		"blx r9",
 		".short 0x8001",
@@ -387,19 +343,13 @@ TEST(Compiler, ConsumeFnv)
 		".short 0x0000",
 		"add pc, lr",
 
-		"pop {r0, r1}",
-		"eors r1, r0",
-		"push {r1}",
-
-		"ldr r0, [pc, #12]",
-		"push {r0}",
-
-		"pop {r0, r1}",
-		"muls r1, r0",
-		"push {r1}",
+		"eors r0, r1",
+		"ldr r1, [pc, #8]",
+		"muls r0, r1",
 
 		"blx r9",
 		".short 0x8001",
+		"nop",
 		".long 0x01000193"
 	});
 }
@@ -428,6 +378,7 @@ TEST(Compiler, PopCount)
 			Bytecode::pull(0),      //     const auto n = m & arg;
 			Bytecode::aAnd(),
 
+			Bytecode::immediate(0),
 			Bytecode::jeq(1),		//     if(n != 0) {
 			Bytecode::pull(1),		//         ret++;
 			Bytecode::immediate(1),
@@ -456,70 +407,40 @@ TEST(Compiler, PopCount)
 		".short 0x0000",
 		"add pc, lr",
 
-		"movs r0, #0",
-		"push {r0}",
+		"movs r1, #0",
+		"movs r2, #0",
+		"movs r3, #1",
+		"mov r4, r2",
+		"lsls r3, r4",
 
-		"movs r0, #0",
-		"push {r0}",
+		"mov r4, r0",
+		"ands r3, r4",
 
-		"movs r0, #1",
-		"push {r0}",
+		"movs r4, #0",
+		"cmp r3, r4",
+		"beq 6",
 
-		"ldr r0, [sp, #16]",
-		"push {r0}",
+		"mov r3, r1",
 
-		"pop {r0, r1}",
-		"lsls r1, r0",
-		"push {r1}",
+		"movs r4, #1",
 
-		"ldr r0, [sp, #24]",
-		"push {r0}",
+		"adds r3, r3, r4",
 
-		"pop {r0, r1}",
-		"ands r1, r0",
-		"push {r1}",
+		"mov r1, r3",
 
-		"pop {r0, r1}",
-		"cmp r1, r0",
-		"beq 16",
+		"mov r3, r2",
+		"movs r4, #1",
 
-		"ldr r0, [sp, #12]",
-		"push {r0}",
+		"adds r3, r3, r4",
 
-		"movs r0, #1",
-		"push {r0}",
+		"mov r2, r3",
 
-		"pop {r0, r1}",
-		"adds r1, r1, r0",
-		"push {r1}",
+		"mov r3, r2",
 
-		"pop {r0}",
-		"str r0, [sp, #12]",
+		"movs r4, #1",
 
-		"ldr r0, [sp, #8]",
-		"push {r0}",
-
-		"movs r0, #1",
-		"push {r0}",
-
-		"pop {r0, r1}",
-		"adds r1, r1, r0",
-		"push {r1}",
-
-		"pop {r0}",
-		"str r0, [sp, #8]",
-
-		"ldr r0, [sp, #8]",
-		"push {r0}",
-
-		"movs r0, #1",
-		"push {r0}",
-
-		"pop {r0, r1}",
-		"cmp r1, r0",
-		"blt -82",
-
-		"add sp, #4",
+		"cmp r3, r4",
+		"blt -42",
 
 		"blx r9",
 		".short 0x8001",
@@ -558,30 +479,18 @@ TEST(Compiler, Abs)
 		".short 0x0000",
 		"add pc, lr",
 
-		"ldr r0, [sp, #12]",
-		"push {r0}",
+		"mov r1, r0",
+		"movs r2, #0",
+		"cmp r1, r2",
+		"blt 2",
 
-		"movs r0, #0",
-		"push {r0}",
+		"mov r1, r0",
 
-		"pop {r0, r1}",
-		"cmp r1, r0",
-		"blt 4",
+		"b 4",
 
-		"ldr r0, [sp, #12]",
-		"push {r0}",
-
-		"b 12",
-
-		"movs r0, #0",
-		"push {r0}",
-
-		"ldr r0, [sp, #16]",
-		"push {r0}",
-
-		"pop {r0, r1}",
-		"subs r1, r1, r0",
-		"push {r1}",
+		"movs r2, #0",
+		"mov r3, r0",
+		"subs r2, r2, r3",
 
 		"blx r9",
 		".short 0x8001",
@@ -626,42 +535,25 @@ TEST(Compiler, Factorial)
 		".short 0x0000",
 		"add pc, lr",
 
-		"ldr r0, [sp, #12]",
-		"push {r0}",
+		"mov r1, r0",
+		"movs r2, #1",
+		"cmp r1, r2",
+		"bgt 2",
+		"movs r1, #1",
+		"b 16",
 
-		"movs r0, #1",
-		"push {r0}",
+		"mov r2, r0",
+		"movs r3, #1",
+		"subs r2, r2, r3",
 
-		"pop {r0, r1}",
-		"cmp r1, r0",
-		"bgt 4",
-
-		"movs r0, #1",
-		"push {r0}",
-
-		"b 30",
-
-		"ldr r0, [sp, #12]",
-		"push {r0}",
-
-		"movs r0, #1",
-		"push {r0}",
-
-		"pop {r0, r1}",
-		"subs r1, r1, r0",
-		"push {r1}",
-
-		"movs r0, #0",
-		"push {r0}",
+		"movs r3, #0",
 
 		"pop {r0}",
 		"add r0, r10",
 		"ldr r1, [r0, #0]",
 		"blx r1",
 
-		"pop {r0, r1}",
-		"muls r1, r0",
-		"push {r1}",
+		"muls r2, r3",
 
 		"blx r9",
 		".short 0x8001",

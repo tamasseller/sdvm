@@ -8,7 +8,6 @@
 .set VMTAB_SHIFT, 15
 
 .set resumeOffset, 6
-.set startOffset,  8
 
 # Before:
 #  - r0, r1: forwarded args

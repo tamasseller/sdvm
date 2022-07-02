@@ -451,6 +451,28 @@ struct ArmV6
 		assert(isLiteralAccess(isn)); // GCOV_EXCL_LINE
 		return (isn & ~0xff) | off.v;
 	}
+
+	static inline bool isStackAccess(uint16_t isn)
+	{
+		const auto p5 = isn & (-1 << 11);
+		return (p5 == (uint16_t)Imm8Op::LDRSP || p5 == (uint16_t)Imm8Op::STRSP || p5 == (uint16_t)Imm8Op::ADDSP);
+	}
+
+	static inline bool getStackOffset(uint16_t isn, uint16_t &off)
+	{
+		if(isStackAccess(isn))
+		{
+			off = isn & 0xff;
+			return true;
+		}
+
+		return false;
+	}
+
+	static inline uint16_t setStackOffset(uint16_t isn, Uoff<2, 8> off) {
+		assert(isStackAccess(isn)); // GCOV_EXCL_LINE
+		return (isn & ~0xff) | off.v;
+	}
 };
 
 #endif /* JIT_ARMV6_H_ */
