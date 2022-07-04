@@ -330,8 +330,28 @@ TEST(Asm, StrayNops)
 
 	CHECK(code[0] == 0x4288); // cmp r0, r1
 	CHECK(code[1] == 0xd100); // bne.n 6 <g>
-	CHECK(code[2] == 0x4800); // adds r0, #1
+	CHECK(code[2] == 0x4800);
 	CHECK(code[3] == 0xbf00);
 	CHECK(code[4] == 0x5678);
 	CHECK(code[5] == 0x1234);
+}
+
+TEST(Asm, Patch)
+{
+	uint16_t code[10] alignas(4);
+	Assembler::LabelInfo labels[1];
+	Assembler a(code, sizeof(code) / sizeof(code[0]), labels, sizeof(labels) / sizeof(labels[0]));
+
+	Assembler::Label g(0);
+	a.emit(ArmV6::nop());
+	auto ptr = a.getPtr();
+	a.emit(ArmV6::nop());
+	a.emit(ArmV6::adds(r0, 1));
+	a.emit(ArmV6::nop());
+
+	*ptr = ArmV6::cmp(r0, r1);
+
+	CHECK(a.assemble() - code == 2);
+	CHECK(code[0] == 0x4288); // cmp r0, r1
+	CHECK(code[1] == 0x3001); // adds r0, #1
 }
