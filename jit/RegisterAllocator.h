@@ -31,15 +31,14 @@ private:
 	uint16_t stackDepth, maxStored = 0;
 	uint8_t usedCsRegs = 0;
 
+	static inline bool isInReg(ValueStatus);
 	uint32_t memoryOffset(uint16_t idx) const;
-
 	static ArmV6::LoReg correspondingRegister(uint16_t idx) ;
-
 	static void summonImmediate(Assembler& a, ArmV6::LoReg target, uint32_t value);
 	void loadCopy(Assembler& a, ArmV6::LoReg reg, uint16_t idx);
 	void store(Assembler& a, uint16_t idx);
 	void eliminateCopies(Assembler &a, uint16_t idx);
-
+	ArmV6::LoReg deactivate(Assembler &a, uint16_t idx, const ValuePlacement& newPlacement);
 	ArmV6::LoReg allocate(Assembler& a, ValueStatus status, uint32_t param);
 
 public:
@@ -58,6 +57,17 @@ public:
 	void pull(Assembler& a, uint32_t idx);
 	void shove(Assembler& a, uint32_t idx);
 	void drop(Assembler& a, uint32_t n);
+
+	void flushDeferred(Assembler &a);
+
+	struct Signature
+	{
+		uint16_t loadedness;
+		uint16_t stackDepth; // TODO remove after validator is implemented
+	};
+
+	Signature getState();
+	void applyState(Assembler &a, Signature);
 };
 
 #endif /* JIT_REGISTERALLOCATOR_H_ */

@@ -65,11 +65,6 @@ struct Bytecode
 			uint32_t targetIdx;
 		};
 
-		struct Label
-		{
-			int32_t stackAdjustment;
-		};
-
 		struct Move
 		{
 			MoveOperation op;
@@ -89,7 +84,6 @@ struct Bytecode
 			Binary bin;
 			Conditional cond;
 			Jump jump;
-			Label label;
 			Move move;
 			Call call;
 		};
@@ -146,11 +140,8 @@ struct Bytecode
 		return ret;
 	}
 
-	static inline constexpr auto label(int32_t stackAdjustment = 0)
-	{
-		auto ret = Instruction{.g = Instruction::OperationGroup::Label};
-		ret.label = Instruction::Label{.stackAdjustment = stackAdjustment};
-		return ret;
+	static inline constexpr auto label() {
+		return Instruction{.g = Instruction::OperationGroup::Label};
 	}
 
 	static inline constexpr auto move(Instruction::MoveOperation op, uint32_t idx)

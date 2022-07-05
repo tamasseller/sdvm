@@ -4,9 +4,7 @@
 
 #include "CodeTestUtils.h"
 
-TEST_GROUP(RegisterAllocator)
-{
-};
+TEST_GROUP(RegisterAllocator) {};
 
 TEST(RegisterAllocator, Sanity)
 {
@@ -699,5 +697,75 @@ TEST(RegisterAllocator, SpillCopy)
 
 		"ldr r1, [sp, #0]",
 		"blx r1"
+	});
+}
+
+TEST(RegisterAllocator, Flush)
+{
+	uint16_t out[512];
+	Assembler::LabelInfo labels[100];
+	Assembler a(out, sizeof(out)/sizeof(out[0]), labels, sizeof(labels)/sizeof(labels[0]));
+	RegisterAllocator ra(1);
+
+	a.emit(ArmV6::movs(ra.acquire(a), 123));
+	ra.pull(a, 1);
+	ra.shove(a, 0);
+	ra.pushImmediate(a, 234);
+	ra.flushDeferred(a);
+
+	auto end = a.assemble();
+	auto result = Disassembler::disassemble(out, end);
+
+	checkCodeIs(result,
+	{
+		"movs r2, #123", // emit
+		"mov r1, r2",
+		"movs r3, #234", // flush
+	});
+}
+
+TEST(RegisterAllocator, Ternary)
+{
+	uint16_t out[512];
+	Assembler::LabelInfo labels[100];
+	Assembler a(out, sizeof(out)/sizeof(out[0]), labels, sizeof(labels)/sizeof(labels[0]));
+	RegisterAllocator ra(2);
+
+	const auto a1 = ra.consume(a);
+	const auto a2 = ra.consume(a);
+
+	a.emit(ArmV6::cmp(a2, a1));
+
+	ra.flushDeferred(a);					// jeq +1
+	auto s0 = ra.getState();
+	a.emit(ArmV6::beq(Assembler::Label(0)));
+
+	ra.pushImmediate(a, 123);				// imm 123
+
+	ra.flushDeferred(a);					// jmp +2
+	auto s1 = ra.getState();
+	a.emit(ArmV6::b(Assembler::Label(1)));
+
+	ra.drop(a, 1);
+
+	ra.applyState(a, s0);				   // label
+	a.pin(0);
+
+	ra.pushImmediate(a, 234);			   // imm 234
+	ra.flushDeferred(a);
+
+	ra.applyState(a, s1);			       // label
+	a.pin(1);
+
+	auto end = a.assemble();
+	auto result = Disassembler::disassemble(out, end);
+
+	checkCodeIs(result,
+	{
+		"cmp r1, r2",
+		"beq 2",
+		"movs r1, #123",
+		"b 0",
+		"movs r1, #234",
 	});
 }

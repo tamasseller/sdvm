@@ -37,7 +37,7 @@ void RegisterAllocator::summonImmediate(Assembler& a, ArmV6::LoReg target, uint3
 
 void RegisterAllocator::loadCopy(Assembler& a, ArmV6::LoReg reg, uint16_t idx)
 {
-	assert(stackDepth <= idx + 8); // GCOV_EXCL_LINE
+	assert(idx < stackDepth && stackDepth <= idx + 8); // GCOV_EXCL_LINE
 	auto &status = topEight[idx & 7].valueStatus;
 
 	if(status == ValueStatus::Unloaded)
@@ -66,20 +66,20 @@ void RegisterAllocator::eliminateCopies(Assembler &a, uint16_t idx)
 
 	for(auto i = pet::max(stackDepth, uint16_t(8)) - 8u; i <= stackDepth; i++)
 	{
-		const auto topSlotIdx = i & 7;
+		auto& placement = topEight[i & 7];
 
-		if(i != idx && topEight[topSlotIdx].valueStatus == ValueStatus::Copy && topEight[topSlotIdx].deferredParam == idx)
+		if(i != idx && placement.valueStatus == ValueStatus::Copy && placement.deferredParam == idx)
 		{
 			if(!replacementFound)
 			{
 				replacementFound = true;
 				replacementIdx = i;
 				loadCopy(a, correspondingRegister(i), idx);
-				topEight[topSlotIdx].valueStatus = ValueStatus::Dirty;
+				placement.valueStatus = ValueStatus::Dirty;
 			}
 			else
 			{
-				topEight[topSlotIdx].deferredParam = replacementIdx;
+				placement.deferredParam = replacementIdx;
 			}
 		}
 	}
@@ -104,40 +104,53 @@ RegisterAllocator::RegisterAllocator(uint32_t nArgs): nArgs(nArgs), stackDepth(n
 	}
 }
 
-ArmV6::LoReg RegisterAllocator::allocate(Assembler& a, ValueStatus status, uint32_t param)
+ArmV6::LoReg RegisterAllocator::deactivate(Assembler &a, uint16_t idx, const ValuePlacement& newPlacement)
 {
-	const auto idx = stackDepth;
-	const auto topSlotIdx = idx & 7;
+	assert(idx < stackDepth && stackDepth <= idx + 8); // GCOV_EXCL_LINE
+
 	const auto reg = correspondingRegister(idx);
+	auto &placement = topEight[idx & 7];
 
-	switch(topEight[topSlotIdx].valueStatus)
+	switch(placement.valueStatus)
 	{
-	case ValueStatus::Empty:
-		break;
-	case ValueStatus::Unloaded:
-	case ValueStatus::Clean:
-		break;
-	case ValueStatus::Dirty:
-		assert(8 <= idx); // GCOV_EXCL_LINE
-		store(a, idx - 8);
-		break;
-	case ValueStatus::Copy:
-		loadCopy(a, reg, topEight[topSlotIdx].deferredParam);
-		assert(8 <= idx); // GCOV_EXCL_LINE
-		store(a, idx - 8);
-		break;
+		case ValueStatus::Empty: assert(false); // GCOV_EXCL_LINE
+		case ValueStatus::Unloaded:
+		case ValueStatus::Clean:
+			break;
+		case ValueStatus::Dirty:
+			store(a, idx);
+			break;
+		case ValueStatus::Copy:
+			loadCopy(a, reg, placement.deferredParam);
+			store(a, idx);
+			break;
 
-	case ValueStatus::Immediate:
-		summonImmediate(a, reg, topEight[topSlotIdx].deferredParam);
-		assert(8 <= idx); // GCOV_EXCL_LINE
-		store(a, idx - 8);
-		break;
+		case ValueStatus::Immediate:
+			summonImmediate(a, reg, placement.deferredParam);
+			store(a, idx);
+			break;
 	}
 
-	topEight[topSlotIdx].valueStatus = status;
-	topEight[topSlotIdx].deferredParam = param;
-	stackDepth++;
+	placement = newPlacement;
+	return reg;
+}
 
+ArmV6::LoReg RegisterAllocator::allocate(Assembler& a, ValueStatus status, uint32_t param)
+{
+	ArmV6::LoReg reg;
+
+	if(7 < stackDepth)
+	{
+		reg = deactivate(a, stackDepth - 8, {status, param});
+	}
+	else
+	{
+		assert(topEight[stackDepth & 7].valueStatus == ValueStatus::Empty);
+		topEight[stackDepth & 7] = {status, param};
+		reg = correspondingRegister(stackDepth);
+	}
+
+	stackDepth++;
 	return reg;
 }
 
@@ -246,8 +259,86 @@ void RegisterAllocator::drop(Assembler& a, uint32_t n)
 
 	while(n--)
 	{
-		const auto idx = --stackDepth;
-		eliminateCopies(a, idx);
-		topEight[idx & 7].valueStatus = (7 < idx) ? ValueStatus::Unloaded : ValueStatus::Empty;
+		eliminateCopies(a, stackDepth - 1);
+		topEight[(stackDepth - 1) & 7].valueStatus = (7 < stackDepth) ? ValueStatus::Unloaded : ValueStatus::Empty;
+		stackDepth--;
+	}
+}
+
+void RegisterAllocator::flushDeferred(Assembler &a)
+{
+	for(auto i = pet::max(stackDepth, uint16_t(8)) - 8u; i <= stackDepth; i++)
+	{
+		const auto slotIdx = i & 7;
+		auto &placement = topEight[slotIdx];
+
+		if(placement.valueStatus == ValueStatus::Copy)
+		{
+			loadCopy(a, correspondingRegister(i), placement.deferredParam);
+			placement.valueStatus = ValueStatus::Dirty;
+		}
+		else if(placement.valueStatus == ValueStatus::Immediate)
+		{
+			summonImmediate(a, correspondingRegister(i), placement.deferredParam);
+			placement.valueStatus = ValueStatus::Dirty;
+		}
+	}
+}
+
+RegisterAllocator::Signature RegisterAllocator::getState()
+{
+	uint16_t loadedness;
+
+	for(auto& p: topEight)
+	{
+		assert((int)p.valueStatus < 4);
+		loadedness = (loadedness << 2) | (uint16_t)p.valueStatus;
+	}
+
+	return Signature
+	{
+		.loadedness = loadedness,
+		.stackDepth = stackDepth // TODO remove after validator is implemented
+	};
+}
+
+inline bool RegisterAllocator::isInReg(ValueStatus v)
+{
+	if(v == ValueStatus::Unloaded)
+	{
+		return false;
+	}
+
+	assert(v == ValueStatus::Clean || v == ValueStatus::Dirty);
+	return true;
+}
+
+void RegisterAllocator::applyState(Assembler &a, Signature sgn)
+{
+	assert(sgn.stackDepth == stackDepth); // TODO remove after validator is implemented
+	auto loadedness = sgn.loadedness;
+
+	for(int i = 0; i < 8; i++)
+	{
+		const auto required = ValueStatus(loadedness >> 14);
+		const auto idx = (stackDepth & ~7) + i;
+		auto &current = topEight[i].valueStatus;
+
+		assert((current == ValueStatus::Empty) == (required == ValueStatus::Empty));
+
+		if(current != ValueStatus::Empty)
+		{
+			if(isInReg(current) && !isInReg(required))
+			{
+				store(a, idx);
+			}
+			else if(!isInReg(current) && isInReg(required))
+			{
+				a.emit(ArmV6::ldrSp(correspondingRegister(idx), memoryOffset(idx)));
+			}
+		}
+
+		current = required;
+		loadedness <<= 2;
 	}
 }
