@@ -1,5 +1,7 @@
 #include "RegisterAllocator.h"
 
+#include "Assembler.h"
+
 uint32_t RegisterAllocator::memoryOffset(uint16_t idx) const {
 	return uint8_t(nRegArgs - idx - 1) << 2;
 }
@@ -154,7 +156,7 @@ ArmV6::LoReg RegisterAllocator::allocate(Assembler& a, ValueStatus status, uint3
 	return reg;
 }
 
-ArmV6::LoReg RegisterAllocator::consume(Assembler& a)
+ArmV6::LoReg RegisterAllocator::replace(Assembler& a)
 {
 	assert(0 < stackDepth); // GCOV_EXCL_LINE
 
@@ -176,6 +178,52 @@ ArmV6::LoReg RegisterAllocator::consume(Assembler& a)
 
 	case ValueStatus::Copy:
 		loadCopy(a, reg, topEight[topSlotIdx].deferredParam);
+		break;
+
+	case ValueStatus::Immediate:
+		summonImmediate(a, reg, topEight[topSlotIdx].deferredParam);
+		break;
+	}
+
+	topEight[topSlotIdx].valueStatus = ValueStatus::Dirty;
+
+	return reg;
+}
+
+
+ArmV6::LoReg RegisterAllocator::consume(Assembler& a)
+{
+	assert(0 < stackDepth); // GCOV_EXCL_LINE
+
+	const auto idx = stackDepth - 1;
+	const auto topSlotIdx = idx & 7;
+	auto reg = correspondingRegister(idx);
+
+	switch(topEight[topSlotIdx].valueStatus)
+	{
+	case ValueStatus::Empty: assert(false);	// GCOV_EXCL_LINE
+		break;
+	case ValueStatus::Unloaded:
+		a.emit(ArmV6::ldrSp(correspondingRegister(idx), memoryOffset(idx)));
+		// no break
+	case ValueStatus::Clean:
+	case ValueStatus::Dirty:
+		eliminateCopies(a, idx);
+		break;
+
+	case ValueStatus::Copy:
+		{
+			const auto target = topEight[topSlotIdx].deferredParam;
+			reg = correspondingRegister(target);
+
+			assert(target < stackDepth && stackDepth <= target + 8); // GCOV_EXCL_LINE
+
+			if(auto &status = topEight[target & 7].valueStatus; status == ValueStatus::Unloaded)
+			{
+				a.emit(ArmV6::ldrSp(reg, memoryOffset(target)));
+				status = ValueStatus::Clean;
+			}
+		}
 		break;
 
 	case ValueStatus::Immediate:
@@ -225,20 +273,28 @@ void RegisterAllocator::shove(Assembler& a, uint32_t dstIdx)
 
 		if(srcPlacement.valueStatus != ValueStatus::Copy || srcPlacement.deferredParam != dstIdx)
 		{
+			eliminateCopies(a, dstIdx);
+
 			if(srcPlacement.valueStatus == ValueStatus::Copy || srcPlacement.valueStatus == ValueStatus::Immediate)
 			{
-				eliminateCopies(a, dstIdx);
-
 				dstPlacement = srcPlacement;
-				srcPlacement.valueStatus = (7 < stackDepth) ? ValueStatus::Unloaded : ValueStatus::Empty;
 			}
 			else
 			{
-				eliminateCopies(a, dstIdx);
-
 				dstPlacement.valueStatus = ValueStatus::Dirty;
-				a.emit(ArmV6::mov(correspondingRegister(dstIdx), correspondingRegister(srcIdx)));
+
+				if(isInReg(srcPlacement.valueStatus))
+				{
+					a.emit(ArmV6::mov(correspondingRegister(dstIdx), correspondingRegister(srcIdx)));
+				}
+				else
+				{
+					assert(srcPlacement.valueStatus == ValueStatus::Unloaded); // GCOV_EXCL_LINE
+					a.emit(ArmV6::ldrSp(correspondingRegister(dstIdx), memoryOffset(srcIdx)));
+				}
 			}
+
+			srcPlacement.valueStatus = (7 < stackDepth) ? ValueStatus::Unloaded : ValueStatus::Empty;
 		}
 		else
 		{

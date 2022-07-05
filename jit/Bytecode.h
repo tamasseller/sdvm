@@ -27,7 +27,7 @@ struct Bytecode
 
 		enum class BinaryOperation
 		{
-			Add, Sub, And, Ior, Xor, Lsh, Rsh, Ash, Mul, Div, Mod
+			Add, Sub, Lsh, Rsh, Ash, And, Ior, Xor, Mul, Div, Mod
 		};
 
 		enum class Condition

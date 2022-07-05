@@ -3,6 +3,8 @@
 
 #include "jit/armv6.h"
 
+#include "RegisterAllocator.h"
+
 /**
  * Mostly in-place assembler for ARMv6-M code generation, it does:
  *
@@ -27,6 +29,8 @@ public:
 	struct LabelInfo
 	{
 		uint16_t offset;
+		RegisterAllocator::Signature raState;
+		bool reached = false;
 	};
 
 private:

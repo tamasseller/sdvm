@@ -2,9 +2,11 @@
 #define JIT_REGISTERALLOCATOR_H_
 
 #include "Immediate.h"
-#include "Assembler.h"
 
+#include "armv6.h"
 #include "algorithm/Math.h"
+
+class Assembler;
 
 class RegisterAllocator
 {
@@ -52,6 +54,7 @@ public:
 		allocate(a, ValueStatus::Immediate, param);
 	}
 
+	ArmV6::LoReg replace(Assembler& a);
 	ArmV6::LoReg consume(Assembler& a);
 
 	void pull(Assembler& a, uint32_t idx);
@@ -68,6 +71,21 @@ public:
 
 	Signature getState();
 	void applyState(Assembler &a, Signature);
+
+	inline bool getTosImm(uint32_t& imm)
+	{
+		assert(0 < stackDepth);
+		const auto &placement = topEight[(stackDepth - 1) & 7];
+
+		if(placement.valueStatus == ValueStatus::Immediate)
+		{
+			imm = placement.deferredParam;
+			return true;
+		}
+
+		return false;
+	}
+
 };
 
 #endif /* JIT_REGISTERALLOCATOR_H_ */

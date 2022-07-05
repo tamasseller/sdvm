@@ -1,4 +1,5 @@
 #include "jit/RegisterAllocator.h"
+#include "jit/Assembler.h"
 
 #include "Disassembler.h"
 
@@ -251,14 +252,12 @@ TEST(RegisterAllocator, PullConsume)
 	{
 		"movs r1, #123",
 
-		"mov r5, r1",
-		"blx r5",
+		"blx r1",
 
 		"movs r4, #234",
 		"blx r4",
 
-		"mov r3, r1",
-		"blx r3",
+		"blx r1",
 
 		"movs r2, #234",
 		"blx r2",
@@ -583,7 +582,33 @@ TEST(RegisterAllocator, ShoveCopyBelowThenDrop)
 	});
 }
 
-TEST(RegisterAllocator, UnloadedCopy)
+TEST(RegisterAllocator, UnloadedCopyReplace)
+{
+	uint16_t out[512];
+	Assembler::LabelInfo labels[100];
+	Assembler a(out, sizeof(out)/sizeof(out[0]), labels, sizeof(labels)/sizeof(labels[0]));
+	RegisterAllocator ra(4);
+
+	ra.pull(a, 3);
+
+	a.emit(ArmV6::blx(ra.replace(a)));
+
+	ra.drop(a, 4);
+
+	auto end = a.assemble();
+	auto result = Disassembler::disassemble(out, end);
+
+	checkCodeIs(result,
+	{
+		"ldr r4, [sp, #1020]",
+
+		"mov r5, r4",
+
+		"blx r5",
+	});
+}
+
+TEST(RegisterAllocator, UnloadedCopyConsume)
 {
 	uint16_t out[512];
 	Assembler::LabelInfo labels[100];
@@ -603,9 +628,7 @@ TEST(RegisterAllocator, UnloadedCopy)
 	{
 		"ldr r4, [sp, #1020]",
 
-		"mov r5, r4",
-
-		"blx r5",
+		"blx r4",
 	});
 }
 
@@ -633,10 +656,7 @@ TEST(RegisterAllocator, CopyLinking)
 	{
 		"mov r1, r3",
 		"blx r3",
-
-		"mov r2, r1",
-		"blx r2",
-
+		"blx r1",
 		"blx r1",
 	});
 }

@@ -1,7 +1,34 @@
 #include "Compiler.h"
+#include "Assembler.h"
 
 #include "VmTab.h"
 #include "RegisterAllocator.h"
+
+static inline void harmonizeState(Assembler& a, RegisterAllocator &ra, Assembler::LabelInfo& li)
+{
+	ra.flushDeferred(a);
+
+	if(li.reached)
+	{
+		ra.applyState(a, li.raState);
+	}
+	else
+	{
+		li.reached = true;
+		li.raState = ra.getState();
+	}
+}
+
+static inline void arrangeReturn(Assembler& a, RegisterAllocator &ra, uint16_t nRet)
+{
+	// TODO free up arg register
+
+	for(int i = 0; i < nRet; i++)
+	{
+		ra.consume(a); // TODO place in regs/push
+	}
+}
+
 
 uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::FunctionInfo& info, Bytecode::InstructionStreamReader& reader)
 {
@@ -46,25 +73,124 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 
 			case Bytecode::Instruction::OperationGroup::Binary:
 			{
-				const auto m = ra.consume(a);
-				const auto nd = ra.consume(a);
-				const auto d = ra.acquire(a);
-				assert(d.idx == nd.idx);
-
-				if(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Sub)
+				if(isn.bin.op == Bytecode::Instruction::BinaryOperation::Add)
 				{
-					const auto idx = (int)isn.bin.op - (int)Bytecode::Instruction::BinaryOperation::Add;
-
-					static constexpr const ArmV6::Reg3Op opLookup[] =
+					if(uint32_t imm; ra.getTosImm(imm))
 					{
-						/* Add */ ArmV6::Reg3Op::ADDREG,
-						/* Sub */ ArmV6::Reg3Op::SUBREG,
-					};
+						if(imm < 32)
+						{
+							ra.drop(a, 1);
+							const auto n = ra.consume(a);
+							const auto d = ra.acquire(a);
 
-					a.emit(ArmV6::fmtReg3(opLookup[idx], nd.idx, nd.idx, m.idx));
+							a.emit(ArmV6::adds(d, n, imm));
+							break;
+						}
+						else if(imm < 256)
+						{
+							ra.drop(a, 1);
+							const auto nd = ra.replace(a);
+
+							a.emit(ArmV6::adds(nd, imm));
+							break;
+						}
+					}
+
+					const auto m = ra.consume(a);
+
+					if(uint32_t imm; ra.getTosImm(imm) && imm < 32)
+					{
+						ra.drop(a, 1);
+						const auto d = ra.acquire(a);
+
+						a.emit(ArmV6::adds(d, m, imm));
+						break;
+					}
+
+					const auto n = ra.consume(a);
+					const auto d = ra.acquire(a);
+
+					a.emit(ArmV6::adds(d, n, m));
+				}
+				else if(isn.bin.op == Bytecode::Instruction::BinaryOperation::Sub)
+				{
+					if(uint32_t imm; ra.getTosImm(imm))
+					{
+						if(imm < 32)
+						{
+							ra.drop(a, 1);
+							const auto n = ra.consume(a);
+							const auto d = ra.acquire(a);
+
+							a.emit(ArmV6::subs(d, n, imm));
+							break;
+						}
+						else if(imm < 256)
+						{
+							ra.drop(a, 1);
+							const auto nd = ra.replace(a);
+
+							a.emit(ArmV6::subs(nd, imm));
+							break;
+						}
+					}
+
+					const auto m = ra.consume(a);
+
+					if(uint32_t imm; ra.getTosImm(imm) && imm == 0)
+					{
+						ra.drop(a, 1);
+						const auto d = ra.acquire(a);
+
+						a.emit(ArmV6::negs(d, m));
+						break;
+					}
+
+					const auto n = ra.consume(a);
+					const auto d = ra.acquire(a);
+
+					a.emit(ArmV6::subs(d, n, m));
+				}
+				else if(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Ash)
+				{
+					const auto idx = (int)isn.bin.op - (int)Bytecode::Instruction::BinaryOperation::Lsh;
+
+					if(uint32_t imm; ra.getTosImm(imm) && imm < 32)
+					{
+						ra.drop(a, 1);
+						const auto m = ra.consume(a);
+						const auto d = ra.acquire(a);
+
+						static constexpr const ArmV6::Imm5Op opLookup[] =
+						{
+							/* Lsh */ ArmV6::Imm5Op::LSL,
+							/* Rsh */ ArmV6::Imm5Op::LSR,
+							/* Ash */ ArmV6::Imm5Op::ASR,
+						};
+
+						a.emit(ArmV6::fmtImm5(opLookup[idx], d.idx, m.idx, imm));
+					}
+					else
+					{
+						const auto m = ra.consume(a);
+						const auto nd = ra.replace(a);
+
+						static constexpr const ArmV6::Reg2Op opLookup[] =
+						{
+							/* Lsh */ ArmV6::Reg2Op::LSL,
+							/* Rsh */ ArmV6::Reg2Op::LSR,
+							/* Ash */ ArmV6::Reg2Op::ASR,
+						};
+
+						a.emit(ArmV6::fmtReg2(opLookup[idx], nd.idx, m.idx));
+					}
+
 				}
 				else if(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Mul)
 				{
+					const auto m = ra.consume(a);
+					const auto nd = ra.replace(a);
+
 					const auto idx = (int)isn.bin.op - (int)Bytecode::Instruction::BinaryOperation::And;
 
 					static constexpr const ArmV6::Reg2Op opLookup[] =
@@ -72,9 +198,6 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 						/* And */ ArmV6::Reg2Op::AND,
 						/* Ior */ ArmV6::Reg2Op::ORR,
 						/* Xor */ ArmV6::Reg2Op::EOR,
-						/* Lsh */ ArmV6::Reg2Op::LSL,
-						/* Rsh */ ArmV6::Reg2Op::LSR,
-						/* Ash */ ArmV6::Reg2Op::ASR,
 						/* Mul */ ArmV6::Reg2Op::MUL,
 					};
 
@@ -99,10 +222,20 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 			}
 			case Bytecode::Instruction::OperationGroup::Conditional:
 			{
-				const auto m = ra.consume(a);
-				const auto n = ra.consume(a);
+				if(uint32_t imm; ra.getTosImm(imm) && imm < 256)
+				{
+					ra.drop(a, 1);
+					const auto n = ra.consume(a);
 
-				a.emit(ArmV6::cmp(n, m));
+					a.emit(ArmV6::cmp(n, imm));
+				}
+				else
+				{
+					const auto m = ra.consume(a);
+					const auto n = ra.consume(a);
+
+					a.emit(ArmV6::cmp(n, m));
+				}
 
 				static constexpr const ArmV6::Condition condLookup[] =
 				{
@@ -119,23 +252,30 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 				};
 
 				assert((size_t)isn.cond.cond < sizeof(condLookup));
-				a.emit(ArmV6::condBranch(condLookup[(size_t)isn.cond.cond], Assembler::Label(isn.cond.targetIdx)));
+
+				const auto targetIdx = isn.cond.targetIdx;
+
+				harmonizeState(a, ra, labels[targetIdx]);
+				a.emit(ArmV6::condBranch(condLookup[(size_t)isn.cond.cond], Assembler::Label(targetIdx)));
 
 				break;
 			}
 			case Bytecode::Instruction::OperationGroup::Jump:
 			{
-				a.emit(ArmV6::b(Assembler::Label(isn.jump.targetIdx)));
+				const auto targetIdx = isn.jump.targetIdx;
 
-				// TODO reconcile laziness: check target and save if state is not set, apply stored state if it is.
+				harmonizeState(a, ra, labels[targetIdx]);
+				a.emit(ArmV6::b(Assembler::Label(targetIdx)));
+
 				break;
 			}
 			case Bytecode::Instruction::OperationGroup::Label:
 			{
-				// TODO reconcile laziness: check target and store state if not set already, apply stored state if it is.
-				// TODO apply isn.label.stackAdjustment;
+				const auto targetIdx = labelIdx++;
 
-				a.pin(Assembler::Label(labelIdx++));
+				harmonizeState(a, ra, labels[targetIdx]);
+				a.pin(Assembler::Label(targetIdx));
+
 				break;
 			}
 			case Bytecode::Instruction::OperationGroup::Move:
@@ -165,14 +305,15 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 			}
 			case Bytecode::Instruction::OperationGroup::Call:
 			{
+				assert(false);
 				// TODO do all lazy calculations here and write result in a PCS compatible manner.
 
-				const auto r = ArmV6::LoReg(0);	// Must be r0 (TODO move to r0 if not).
-				const auto s = ArmV6::LoReg(1);
-				a.emit(ArmV6::pop(ArmV6::LoRegs{}.add(r)));
-				a.emit(ArmV6::add(r, ArmV6::AnyReg(10)));
-				a.emit(ArmV6::ldr(s, r, ArmV6::Uoff<2, 5>(0)));
-				a.emit(ArmV6::blx(s));
+//				const auto r = ArmV6::LoReg(0);	// Must be r0 (TODO move to r0 if not).
+//				const auto s = ArmV6::LoReg(1);
+//				a.emit(ArmV6::pop(ArmV6::LoRegs{}.add(r)));
+//				a.emit(ArmV6::add(r, ArmV6::AnyReg(10)));
+//				a.emit(ArmV6::ldr(s, r, ArmV6::Uoff<2, 5>(0)));
+//				a.emit(ArmV6::blx(s));
 
 //				assert(isn.call.nArgs <= stackDepth);
 //
@@ -182,17 +323,20 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 			}
 			case Bytecode::Instruction::OperationGroup::Return:
 			{
-				// TODO do all lazy calculations here and write result in a PCS compatible manner.
+				arrangeReturn(a, ra, info.nRet);
 				emitRetBranch = true;
 
-//				assert(info.nRet <= stackDepth);
-//				stackDepth -= info.nRet;
 				break;
 			}
 		}
 	}
 
 	assert(labelIdx == info.nLabels);
+
+	if(!emitRetBranch)
+	{
+		arrangeReturn(a, ra, info.nRet);
+	}
 
 	a.pin(end);
 	a.vmTab((VMTAB_LEAVE_NON_LEAF_INDEX << VMTAB_SHIFT) | info.nRet);

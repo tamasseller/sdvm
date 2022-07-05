@@ -38,8 +38,7 @@ TEST(Compiler, Square)
 		".short 0x0000",
 		"add pc, lr",
 
-		"mov r2, r1",
-		"muls r1, r2",
+		"muls r1, r1",
 
 		"blx r9",
 		".short 0x8001",
@@ -70,14 +69,137 @@ TEST(Compiler, AddThree)
 		".short 0x0000",
 		"add pc, lr",
 
-		"movs r2, #3",
-		"adds r1, r1, r2",
+		"adds r1, r1, #3",
 
 		"blx r9",
 		".short 0x8001",
 	});
 }
 
+TEST(Compiler, Add123)
+{
+	auto result = compile(MockFunction
+	{
+		Bytecode::FunctionInfo{
+			.nLabels = 0,
+			.nArgs = 1,
+			.nRet = 1,
+			.hasNonTailCall = false
+		},
+		{
+			Bytecode::immediate(123),
+			Bytecode::add(),
+			Bytecode::ret()
+		}
+	});
+
+	checkCodeIs(result,
+	{
+		"mov r0, lr",
+		"blx r9",
+		".short 0x0000",
+		"add pc, lr",
+
+		"adds r1, #123",
+
+		"blx r9",
+		".short 0x8001",
+	});
+}
+
+TEST(Compiler, AddThreeReverse)
+{
+	auto result = compile(MockFunction
+	{
+		Bytecode::FunctionInfo{
+			.nLabels = 0,
+			.nArgs = 1,
+			.nRet = 1,
+			.hasNonTailCall = false
+		},
+		{
+			Bytecode::immediate(3),
+			Bytecode::pull(0),
+			Bytecode::add(),
+			Bytecode::ret()
+		}
+	});
+
+	checkCodeIs(result,
+	{
+		"mov r0, lr",
+		"blx r9",
+		".short 0x0000",
+		"add pc, lr",
+
+		"adds r2, r1, #3",
+
+		"blx r9",
+		".short 0x8001",
+	});
+}
+
+TEST(Compiler, SubThree)
+{
+	auto result = compile(MockFunction
+	{
+		Bytecode::FunctionInfo{
+			.nLabels = 0,
+			.nArgs = 1,
+			.nRet = 1,
+			.hasNonTailCall = false
+		},
+		{
+			Bytecode::immediate(3),
+			Bytecode::sub(),
+			Bytecode::ret()
+		}
+	});
+
+	checkCodeIs(result,
+	{
+		"mov r0, lr",
+		"blx r9",
+		".short 0x0000",
+		"add pc, lr",
+
+		"subs r1, r1, #3",
+
+		"blx r9",
+		".short 0x8001",
+	});
+}
+
+TEST(Compiler, Sub123)
+{
+	auto result = compile(MockFunction
+	{
+		Bytecode::FunctionInfo{
+			.nLabels = 0,
+			.nArgs = 1,
+			.nRet = 1,
+			.hasNonTailCall = false
+		},
+		{
+			Bytecode::immediate(123),
+			Bytecode::sub(),
+			Bytecode::ret()
+		}
+	});
+
+	checkCodeIs(result,
+	{
+		"mov r0, lr",
+		"blx r9",
+		".short 0x0000",
+		"add pc, lr",
+
+		"subs r1, #123",
+
+		"blx r9",
+		".short 0x8001",
+	});
+}
 TEST(Compiler, Add1024Times400GreaterThanNegative100)
 {
 	auto result = compile(MockFunction
@@ -97,7 +219,7 @@ TEST(Compiler, Add1024Times400GreaterThanNegative100)
 			Bytecode::jsgt(0),
 				Bytecode::immediate(0),
 				Bytecode::ret(),
-			Bytecode::label(-1),
+			Bytecode::label(),
 				Bytecode::immediate(1),
 		}
 	});
@@ -123,13 +245,13 @@ TEST(Compiler, Add1024Times400GreaterThanNegative100)
 		"mvns r2, r2",
 
 		"cmp r1, r2",
-		"bgt 0",
+		"bgt 2",
 
-//		"movs r1, #0",			XXX
+		"movs r1, #0",
 
-		"b -2",
+		"b 0",
 
-//		"movs r1, #1",	        XXX
+		"movs r1, #1",
 
 		"blx r9",
 		".short 0x8001",
@@ -169,12 +291,9 @@ TEST(Compiler, SetLowByte)
 		".short 0x0000",
 		"add pc, lr",
 
-		"movs r4, #8",
-		"mov r3, r1",
-		"lsrs r3, r4",
 
-		"movs r4, #8",
-		"lsls r3, r4",
+		"lsrs r3, r1, #8",
+		"lsls r3, r3, #8",
 
 		"movs r5, #255",
 		"mov r4, r2",
@@ -310,44 +429,34 @@ TEST(Compiler, PopCount)
 		".short 0x0000",
 		"add pc, lr",
 
-		"movs r5, #0",
-		"movs r4, #1",
-		"lsls r4, r5",
+		"movs r2, #0",	   // immediate(0)
+		"movs r3, #0",	   // immediate(0)
+						   // label()
+		"movs r4, #1",     // immediate(1)
 
-		"mov r5, r1",
-		"ands r4, r5",
+		"lsls r4, r3",     // pull(2); lsh()
 
-		"movs r5, #0",
-		"cmp r4, r5",
-		"beq 6",
+		"ands r4, r1",     // pull(0); aAnd()
 
-		"movs r5, #1",
+		"cmp r4, #0",      // immediate(0); jeq(1)
+		"beq 2",
 
-		"movs r4, #0",
+		"adds r4, r2, #1", // immediate(1);pull(1);add()
 
-		"adds r4, r4, r5",
+		"mov r2, r4",      // shove(1)
 
-		"mov r1, r3",
+		"adds r4, r3, #1", // immediate(1);pull(2);add()
 
-		"mov r3, r2",
-		"movs r4, #1",
+		"mov r3, r4",      // shove(2)
 
-		"adds r3, r3, r4",
-
-		"mov r2, r3",
-
-		"mov r3, r2",
-
-		"movs r4, #1",
-
-		"cmp r3, r4",
-		"blt -42",
+		"cmp r3, #1",      // pull(2); immediate(1); jslt(0)
+		"blt -24",
 
 		"blx r9",
 		".short 0x8001",
 	});
 }
-#if 0
+
 TEST(Compiler, Abs)
 {
 	auto result = compile(MockFunction
@@ -364,11 +473,12 @@ TEST(Compiler, Abs)
 			Bytecode::jslt(0),
 			Bytecode::pull(0),
 			Bytecode::jump(1),
-			Bytecode::label(-1), // 0
+			Bytecode::drop(1),
+			Bytecode::label(),
 			Bytecode::immediate(0),
 			Bytecode::pull(0),
 			Bytecode::sub(),
-			Bytecode::label(0),	// 1
+			Bytecode::label(),
 			Bytecode::ret()
 		}
 	});
@@ -380,24 +490,20 @@ TEST(Compiler, Abs)
 		".short 0x0000",
 		"add pc, lr",
 
-		"mov r1, r0",
-		"movs r2, #0",
-		"cmp r1, r2",
+		"cmp r1, #0",
 		"blt 2",
 
-		"mov r1, r0",
+		"mov r2, r1",
 
-		"b 4",
+		"b 0",
 
-		"movs r2, #0",
-		"mov r3, r0",
-		"subs r2, r2, r3",
+		"negs r2, r1",
 
 		"blx r9",
 		".short 0x8001",
 	});
 }
-
+#if 0
 TEST(Compiler, Factorial)
 {
 	auto result = compile(MockFunction
