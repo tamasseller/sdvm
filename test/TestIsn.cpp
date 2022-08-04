@@ -1,6 +1,6 @@
 #include "TestUtils.h"
 
-#include "jit/armv6.h"
+#include "armv6.h"
 
 TEST_GROUP(Isn)
 {

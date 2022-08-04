@@ -13,7 +13,7 @@ struct Compiler
 		size_t length;
 	};
 
-	static uint16_t *compile(uint16_t fnIdx, const Output& out, const Bytecode::FunctionInfo& info, Bytecode::InstructionStreamReader& reader);
+	static uint16_t *compile(uint16_t fnIdx, const Output& out, Bytecode::FunctionReader *reader);
 };
 
 #endif /* JIT_COMPILER_H_ */

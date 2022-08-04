@@ -1,6 +1,6 @@
 #include "TestUtils.h"
 
-#include "jit/Assembler.h"
+#include "Assembler.h"
 #include "Disassembler.h"
 
 TEST_GROUP(DisAsm)

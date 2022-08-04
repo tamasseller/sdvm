@@ -1,5 +1,5 @@
-#include "jit/RegisterAllocator.h"
-#include "jit/Assembler.h"
+#include "RegisterAllocator.h"
+#include "Assembler.h"
 
 #include "Disassembler.h"
 

@@ -1,7 +1,7 @@
 #ifndef DISASSEMBLER_H_
 #define DISASSEMBLER_H_
 
-#include "jit/armv6.h"
+#include "armv6.h"
 
 #include <vector>
 #include <string>

@@ -1,3 +1,4 @@
+#include "Analyzer.h"
 #include "Compiler.h"
 #include "Assembler.h"
 
@@ -30,13 +31,22 @@ static inline void arrangeReturn(Assembler& a, RegisterAllocator &ra, uint16_t n
 }
 
 
-uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::FunctionInfo& info, Bytecode::InstructionStreamReader& reader)
+uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, Bytecode::FunctionReader *reader)
 {
 	uint32_t labelIdx = 0;
 
-	Assembler::LabelInfo labels[info.nLabels + 1];
-	Assembler::Label end(info.nLabels);
-	Assembler a(out.start, out.length, labels, info.nLabels + 1);
+	Analyzer::Result aRes;
+
+	if(!Analyzer::analyze(aRes, reader))
+	{
+		return nullptr;
+	}
+
+	const Bytecode::FunctionInfo info = reader->reset();
+
+	Assembler::LabelInfo labels[aRes.nLabels + 1];
+	Assembler::Label end(aRes.nLabels);
+	Assembler a(out.start, out.length, labels, aRes.nLabels + 1);
 
 	// TODO optimize leafs
 	const auto startPtr = a.getPtr();
@@ -56,7 +66,7 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 
 	bool emitRetBranch = false;
 
-	for(Bytecode::Instruction isn; reader(isn);)
+	for(Bytecode::Instruction isn; reader->read(isn);)
 	{
 		if(emitRetBranch)
 		{
@@ -67,13 +77,13 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 		{
 			case Bytecode::Instruction::OperationGroup::Immediate:
 			{
-				ra.pushImmediate(a, isn.imm.value);
+				ra.pushImmediate(a, isn.immValue);
 				break;
 			}
 
 			case Bytecode::Instruction::OperationGroup::Binary:
 			{
-				if(isn.bin.op == Bytecode::Instruction::BinaryOperation::Add)
+				if(isn.binOp == Bytecode::Instruction::BinaryOperation::Add)
 				{
 					if(uint32_t imm; ra.getTosImm(imm))
 					{
@@ -112,7 +122,7 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 
 					a.emit(ArmV6::adds(d, n, m));
 				}
-				else if(isn.bin.op == Bytecode::Instruction::BinaryOperation::Sub)
+				else if(isn.binOp == Bytecode::Instruction::BinaryOperation::Sub)
 				{
 					if(uint32_t imm; ra.getTosImm(imm))
 					{
@@ -151,9 +161,9 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 
 					a.emit(ArmV6::subs(d, n, m));
 				}
-				else if(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Ash)
+				else if(isn.binOp <= Bytecode::Instruction::BinaryOperation::Ash)
 				{
-					const auto idx = (int)isn.bin.op - (int)Bytecode::Instruction::BinaryOperation::Lsh;
+					const auto idx = (int)isn.binOp - (int)Bytecode::Instruction::BinaryOperation::Lsh;
 
 					if(uint32_t imm; ra.getTosImm(imm) && imm < 32)
 					{
@@ -186,12 +196,12 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 					}
 
 				}
-				else if(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Mul)
+				else if(isn.binOp <= Bytecode::Instruction::BinaryOperation::Mul)
 				{
 					const auto m = ra.consume(a);
 					const auto nd = ra.replace(a);
 
-					const auto idx = (int)isn.bin.op - (int)Bytecode::Instruction::BinaryOperation::And;
+					const auto idx = (int)isn.binOp - (int)Bytecode::Instruction::BinaryOperation::And;
 
 					static constexpr const ArmV6::Reg2Op opLookup[] =
 					{
@@ -206,8 +216,8 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 				else
 				{
 					/* GCOV_EXCL_START */
-					assert(isn.bin.op <= Bytecode::Instruction::BinaryOperation::Mod);
-					const auto idx = (int)isn.bin.op - (int)Bytecode::Instruction::BinaryOperation::Div;
+					assert(isn.binOp <= Bytecode::Instruction::BinaryOperation::Mod);
+					const auto idx = (int)isn.binOp - (int)Bytecode::Instruction::BinaryOperation::Div;
 
 					static constexpr const uint16_t controlValueLookup[] =
 					{
@@ -251,18 +261,18 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 					/* SignedNotLess      */ ArmV6::Condition::GE
 				};
 
-				assert((size_t)isn.cond.cond < sizeof(condLookup));
+				assert((size_t)isn.cond < sizeof(condLookup));
 
-				const auto targetIdx = isn.cond.targetIdx;
+				const auto targetIdx = isn.targetIdx;
 
 				harmonizeState(a, ra, labels[targetIdx]);
-				a.emit(ArmV6::condBranch(condLookup[(size_t)isn.cond.cond], Assembler::Label(targetIdx)));
+				a.emit(ArmV6::condBranch(condLookup[(size_t)isn.cond], Assembler::Label(targetIdx)));
 
 				break;
 			}
 			case Bytecode::Instruction::OperationGroup::Jump:
 			{
-				const auto targetIdx = isn.jump.targetIdx;
+				const auto targetIdx = isn.targetIdx;
 
 				harmonizeState(a, ra, labels[targetIdx]);
 				a.emit(ArmV6::b(Assembler::Label(targetIdx)));
@@ -282,21 +292,21 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 			{
 				const auto r = ArmV6::LoReg(0);
 
-				switch(isn.move.op)
+				switch(isn.moveOp)
 				{
 					case Bytecode::Instruction::MoveOperation::Pull:
 					{
-						ra.pull(a, isn.move.param);
+						ra.pull(a, isn.param);
 						break;
 					}
 					case Bytecode::Instruction::MoveOperation::Shove:
 					{
-						ra.shove(a, isn.move.param);
+						ra.shove(a, isn.param);
 						break;
 					}
 					case Bytecode::Instruction::MoveOperation::Drop:
 					{
-						ra.drop(a, isn.move.param);
+						ra.drop(a, isn.param);
 						break;
 					}
 				}
@@ -331,7 +341,7 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, const Bytecode::F
 		}
 	}
 
-	assert(labelIdx == info.nLabels);
+	assert(labelIdx == aRes.nLabels);
 
 	if(!emitRetBranch)
 	{

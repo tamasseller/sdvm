@@ -1,7 +1,7 @@
 #ifndef INMEMORYPROGRAMREADER_H_
 #define INMEMORYPROGRAMREADER_H_
 
-#include "vm/Visa.h"
+#include "Visa.h"
 
 #include <vector>
 

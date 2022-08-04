@@ -1,7 +1,7 @@
 #ifndef ASSEMBLER_H_
 #define ASSEMBLER_H_
 
-#include "jit/armv6.h"
+#include "armv6.h"
 
 #include "RegisterAllocator.h"
 

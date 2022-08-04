@@ -1,6 +1,6 @@
 #include "TestUtils.h"
 
-#include "jit/Immediate.h"
+#include "Immediate.h"
 
 TEST_GROUP(Immediate)
 {

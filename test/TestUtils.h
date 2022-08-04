@@ -1,9 +1,9 @@
 #ifndef TESTUTILS_H_
 #define TESTUTILS_H_
 
-#include "vm/Interpreter.h"
-#include "tools/Program.h"
-#include "tools/ExceptionalErrorHandler.h"
+#include "Interpreter.h"
+#include "Program.h"
+#include "ExceptionalErrorHandler.h"
 
 #include "1test/Test.h"
 

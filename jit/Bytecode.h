@@ -7,13 +7,12 @@ struct Bytecode
 {
 	struct FunctionInfo
 	{
-		uint32_t nLabels, nArgs, nRet;
-		bool hasNonTailCall;
+		uint32_t nArgs, nRet;
 	};
 
 	struct Instruction
 	{
-		enum class OperationGroup
+		enum class OperationGroup: uint8_t
 		{
 			Immediate,
 			Binary,
@@ -22,15 +21,16 @@ struct Bytecode
 			Label,
 			Move,
 			Call,
-			Return
+			Return,
+			Invalid
 		};
 
-		enum class BinaryOperation
+		enum class BinaryOperation: uint8_t
 		{
 			Add, Sub, Lsh, Rsh, Ash, And, Ior, Xor, Mul, Div, Mod
 		};
 
-		enum class Condition
+		enum class Condition: uint8_t
 		{
 			Equal, NotEqual,
 			UnsignedGreater, UnsignedNotGreater,
@@ -39,67 +39,60 @@ struct Bytecode
 			SignedLess, SignedNotLess
 		};
 
-		enum class MoveOperation
+		enum class MoveOperation: uint8_t
 		{
 			Pull, Shove, Drop
-		};
-
-		struct Immediate
-		{
-			uint32_t value;
-		};
-
-		struct Binary
-		{
-			BinaryOperation op;
-		};
-
-		struct Conditional
-		{
-			Condition cond;
-			uint32_t targetIdx;
-		};
-
-		struct Jump
-		{
-			uint32_t targetIdx;
-		};
-
-		struct Move
-		{
-			MoveOperation op;
-			uint32_t param;
-		};
-
-		struct Call
-		{
-			uint32_t nArgs, nRet;
 		};
 
 		OperationGroup g;
 
 		union
 		{
-			Immediate imm;
-			Binary bin;
-			Conditional cond;
-			Jump jump;
-			Move move;
-			Call call;
+			Condition cond;
+			MoveOperation moveOp;
+			BinaryOperation binOp;
+			uint8_t rawSpecifier;
 		};
+
+		union
+		{
+			uint32_t targetIdx;
+			uint32_t immValue;
+			uint32_t param;
+
+			struct
+			{
+				uint16_t nArgs, nRet;
+			};
+
+			uint32_t rawParameter;
+		};
+
+		constexpr inline operator uint64_t() const
+		{
+			return ((uint64_t)(uint8_t)g << 56) | ((uint64_t)rawSpecifier << 48) | rawParameter;
+		}
+
+		constexpr inline Instruction(): Instruction(0ull) {}
+		constexpr inline Instruction(const Instruction&) = default;
+		constexpr inline Instruction(uint64_t b): g((OperationGroup)(b >> 56)), rawSpecifier(b >> 48), rawParameter(b) {}
 	};
+
+	static_assert(sizeof(Instruction) == 8);
 
 	static inline constexpr auto immediate(uint32_t value)
 	{
-		auto ret = Instruction{.g = Instruction::OperationGroup::Immediate};
-		ret.imm.value = value;
+		Instruction ret;
+		ret.g = Instruction::OperationGroup::Immediate;
+		ret.immValue = value;
 		return ret;
 	}
 
 	static inline constexpr auto binary(Instruction::BinaryOperation op)
 	{
-		auto ret = Instruction{.g = Instruction::OperationGroup::Binary};
-		ret.bin.op = op;
+		Instruction ret;
+		ret.g = Instruction::OperationGroup::Binary;
+		ret.binOp = op;
 		return ret;
 	}
 
@@ -117,8 +110,10 @@ struct Bytecode
 
 	static inline constexpr auto conditional(Instruction::Condition cond, uint32_t targetIdx)
 	{
-		auto ret = Instruction{.g = Instruction::OperationGroup::Conditional};
-		ret.cond = Instruction::Conditional{.cond = cond, .targetIdx = targetIdx};
+		Instruction ret;
+		ret.g = Instruction::OperationGroup::Conditional;
+		ret.cond = cond;
+		ret.targetIdx = targetIdx;
 		return ret;
 	}
 
@@ -135,19 +130,25 @@ struct Bytecode
 
 	static inline constexpr auto jump(uint32_t targetIdx)
 	{
-		auto ret = Instruction{.g = Instruction::OperationGroup::Jump};
-		ret.jump = Instruction::Jump{.targetIdx = targetIdx};
+		Instruction ret;
+		ret.g = Instruction::OperationGroup::Jump;
+		ret.targetIdx = targetIdx;
 		return ret;
 	}
 
-	static inline constexpr auto label() {
-		return Instruction{.g = Instruction::OperationGroup::Label};
+	static inline constexpr auto label()
+	{
+		Instruction ret;
+		ret.g = Instruction::OperationGroup::Label;
+		return ret;
 	}
 
 	static inline constexpr auto move(Instruction::MoveOperation op, uint32_t idx)
 	{
-		auto ret = Instruction{.g = Instruction::OperationGroup::Move};
-		ret.move = Instruction::Move{.op = op, .param = idx};
+		Instruction ret;
+		ret.g = Instruction::OperationGroup::Move;
+		ret.moveOp = op;
+		ret.param = idx;
 		return ret;
 	}
 
@@ -157,22 +158,38 @@ struct Bytecode
 
 	static inline constexpr auto call(uint32_t nArgs, uint32_t nRet)
 	{
-		auto ret = Instruction{.g = Instruction::OperationGroup::Call};
-		ret.call = Instruction::Call{.nArgs = nArgs, .nRet = nRet};
+		Instruction ret;
+		ret.g = Instruction::OperationGroup::Call;
+		ret.nArgs = nArgs;
+		ret.nRet = nRet;
 		return ret;
 	}
 
 	static inline constexpr auto ret() {
-		return Instruction{.g = Instruction::OperationGroup::Return};
+		Instruction ret;
+		ret.g = Instruction::OperationGroup::Return;
+		return ret;
 	}
 
-	class InstructionStreamReader
+	class FunctionReader
 	{
-		bool (*doRead)(InstructionStreamReader*, Instruction&);
+		uint64_t (*doRead)(FunctionReader*);
+		FunctionInfo (*doReset)(FunctionReader*);
 
 	public:
-		inline InstructionStreamReader(decltype(doRead) doRead): doRead(doRead) {}
-		inline bool operator()(Instruction &isn) { return doRead(this, isn); }
+		inline FunctionReader(decltype(doRead) doRead, decltype(doReset) doReset):
+			doRead(doRead), doReset(doReset) {}
+
+		inline bool read(Instruction &isn)
+		{
+			isn = doRead(this);
+			return isn.g != Bytecode::Instruction::OperationGroup::Invalid;
+		}
+
+		inline FunctionInfo reset()
+		{
+			return doReset(this);
+		}
 	};
 };
 
