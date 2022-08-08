@@ -37,40 +37,42 @@ bool Analyzer::analyze(Analyzer::Result& ret, Bytecode::FunctionReader* reader)
 			case Bytecode::Instruction::OperationGroup::Immediate:
 				stackLevel++;
 				break;
+
 			case Bytecode::Instruction::OperationGroup::Binary:
 				stackLevel--;
 				break;
+
 			case Bytecode::Instruction::OperationGroup::Conditional:
 				stackLevel -= 2;
 				// intentional no break;
 			case Bytecode::Instruction::OperationGroup::Jump:
-				maxJumpTarget = pet::max(maxJumpTarget, (int)isn.targetIdx);
+				maxJumpTarget = pet::max(maxJumpTarget, (int)isn.jumpTargetIdx);
 				break;
+
 			case Bytecode::Instruction::OperationGroup::Label:
 				ret.nLabels++;
 				break;
-			case Bytecode::Instruction::OperationGroup::Move:
-				switch(isn.moveOp)
+
+			case Bytecode::Instruction::OperationGroup::Pull:
+				if(stackLevel <= isn.param)
 				{
-				case Bytecode::Instruction::MoveOperation::Pull:
-					if(stackLevel <= isn.param)
-					{
-						return false;
-					}
-
-					stackLevel++;
-					break;
-
-				case Bytecode::Instruction::MoveOperation::Shove:
-					if(!stackLevel || (stackLevel - 1) <= isn.param)
-					{
-						return false;
-					}
-
-				// intentional no break;
-				case Bytecode::Instruction::MoveOperation::Drop:
-					stackLevel--;
+					return false;
 				}
+
+				stackLevel++;
+				break;
+
+			case Bytecode::Instruction::OperationGroup::Shove:
+				if(!stackLevel || (stackLevel - 1) <= isn.param)
+				{
+					return false;
+				}
+
+				stackLevel--;
+				break;
+
+			case Bytecode::Instruction::OperationGroup::Drop:
+				stackLevel -= isn.param;
 				break;
 
 			case Bytecode::Instruction::OperationGroup::Call:
@@ -130,7 +132,7 @@ bool Analyzer::analyze(Analyzer::Result& ret, Bytecode::FunctionReader* reader)
 				stackLevel -= 2;
 				// intentional no break;
 			case Bytecode::Instruction::OperationGroup::Jump:
-				if(!checkStackLevel(stackLevels[isn.targetIdx], stackLevel))
+				if(!checkStackLevel(stackLevels[isn.jumpTargetIdx], stackLevel))
 				{
 					return false;
 				}
@@ -146,15 +148,16 @@ bool Analyzer::analyze(Analyzer::Result& ret, Bytecode::FunctionReader* reader)
 				labelCounter++;
 				break;
 
-			case Bytecode::Instruction::OperationGroup::Move:
-				if(isn.moveOp == Bytecode::Instruction::MoveOperation::Pull)
-				{
-					stackLevel++;
-				}
-				else
-				{
-					stackLevel--;
-				}
+			case Bytecode::Instruction::OperationGroup::Pull:
+				stackLevel++;
+				break;
+
+			case Bytecode::Instruction::OperationGroup::Shove:
+				stackLevel--;
+				break;
+
+			case Bytecode::Instruction::OperationGroup::Drop:
+				stackLevel -= isn.nArgs;
 				break;
 
 			case Bytecode::Instruction::OperationGroup::Call: stackLevel = stackLevel - isn.nArgs + isn.nRet; break;

@@ -263,7 +263,7 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, Bytecode::Functio
 
 				assert((size_t)isn.cond < sizeof(condLookup));
 
-				const auto targetIdx = isn.targetIdx;
+				const auto targetIdx = isn.jumpTargetIdx;
 
 				harmonizeState(a, ra, labels[targetIdx]);
 				a.emit(ArmV6::condBranch(condLookup[(size_t)isn.cond], Assembler::Label(targetIdx)));
@@ -272,7 +272,7 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, Bytecode::Functio
 			}
 			case Bytecode::Instruction::OperationGroup::Jump:
 			{
-				const auto targetIdx = isn.targetIdx;
+				const auto targetIdx = isn.jumpTargetIdx;
 
 				harmonizeState(a, ra, labels[targetIdx]);
 				a.emit(ArmV6::b(Assembler::Label(targetIdx)));
@@ -288,29 +288,19 @@ uint16_t *Compiler::compile(uint16_t fnIdx, const Output& out, Bytecode::Functio
 
 				break;
 			}
-			case Bytecode::Instruction::OperationGroup::Move:
+			case Bytecode::Instruction::OperationGroup::Pull:
 			{
-				const auto r = ArmV6::LoReg(0);
-
-				switch(isn.moveOp)
-				{
-					case Bytecode::Instruction::MoveOperation::Pull:
-					{
-						ra.pull(a, isn.param);
-						break;
-					}
-					case Bytecode::Instruction::MoveOperation::Shove:
-					{
-						ra.shove(a, isn.param);
-						break;
-					}
-					case Bytecode::Instruction::MoveOperation::Drop:
-					{
-						ra.drop(a, isn.param);
-						break;
-					}
-				}
-
+				ra.pull(a, isn.param);
+				break;
+			}
+			case Bytecode::Instruction::OperationGroup::Shove:
+			{
+				ra.shove(a, isn.param);
+				break;
+			}
+			case Bytecode::Instruction::OperationGroup::Drop:
+			{
+				ra.drop(a, isn.param);
 				break;
 			}
 			case Bytecode::Instruction::OperationGroup::Call:

@@ -19,7 +19,9 @@ struct Bytecode
 			Conditional,
 			Jump,
 			Label,
-			Move,
+			Pull,
+			Shove,
+			Drop,
 			Call,
 			Return,
 			Invalid
@@ -39,26 +41,19 @@ struct Bytecode
 			SignedLess, SignedNotLess
 		};
 
-		enum class MoveOperation: uint8_t
-		{
-			Pull, Shove, Drop
-		};
-
 		OperationGroup g;
 
 		union
 		{
-			Condition cond;
-			MoveOperation moveOp;
-			BinaryOperation binOp;
-			uint8_t rawSpecifier;
-		};
-
-		union
-		{
-			uint32_t targetIdx;
 			uint32_t immValue;
 			uint32_t param;
+			BinaryOperation binOp;
+
+			struct
+			{
+				Condition cond;
+				uint16_t jumpTargetIdx;
+			};
 
 			struct
 			{
@@ -70,12 +65,12 @@ struct Bytecode
 
 		constexpr inline operator uint64_t() const
 		{
-			return ((uint64_t)(uint8_t)g << 56) | ((uint64_t)rawSpecifier << 48) | rawParameter;
+			return ((uint64_t)(uint8_t)g << 32) | rawParameter;
 		}
 
 		constexpr inline Instruction(): Instruction(0ull) {}
 		constexpr inline Instruction(const Instruction&) = default;
-		constexpr inline Instruction(uint64_t b): g((OperationGroup)(b >> 56)), rawSpecifier(b >> 48), rawParameter(b) {}
+		constexpr inline Instruction(uint64_t b): g((OperationGroup)(b >> 32)), rawParameter(b) {}
 	};
 
 	static_assert(sizeof(Instruction) == 8);
@@ -113,7 +108,7 @@ struct Bytecode
 		Instruction ret;
 		ret.g = Instruction::OperationGroup::Conditional;
 		ret.cond = cond;
-		ret.targetIdx = targetIdx;
+		ret.jumpTargetIdx = targetIdx;
 		return ret;
 	}
 
@@ -132,7 +127,7 @@ struct Bytecode
 	{
 		Instruction ret;
 		ret.g = Instruction::OperationGroup::Jump;
-		ret.targetIdx = targetIdx;
+		ret.jumpTargetIdx = targetIdx;
 		return ret;
 	}
 
@@ -143,18 +138,17 @@ struct Bytecode
 		return ret;
 	}
 
-	static inline constexpr auto move(Instruction::MoveOperation op, uint32_t idx)
+	static inline constexpr auto move(Instruction::OperationGroup op, uint32_t idx)
 	{
 		Instruction ret;
-		ret.g = Instruction::OperationGroup::Move;
-		ret.moveOp = op;
+		ret.g = op;
 		ret.param = idx;
 		return ret;
 	}
 
-	static inline constexpr auto pull(uint32_t idx) { return move(Instruction::MoveOperation::Pull, idx); }
-	static inline constexpr auto shove(uint32_t idx) { return move(Instruction::MoveOperation::Shove, idx); }
-	static inline constexpr auto drop(uint32_t count) { return move(Instruction::MoveOperation::Drop, count); }
+	static inline constexpr auto pull(uint32_t idx) { return move(Instruction::OperationGroup::Pull, idx); }
+	static inline constexpr auto shove(uint32_t idx) { return move(Instruction::OperationGroup::Shove, idx); }
+	static inline constexpr auto drop(uint32_t count) { return move(Instruction::OperationGroup::Drop, count); }
 
 	static inline constexpr auto call(uint32_t nArgs, uint32_t nRet)
 	{

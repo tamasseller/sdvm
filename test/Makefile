@@ -23,6 +23,7 @@ SOURCES += ../pet/1test/TestRunnerExperimental.cpp
 SOURCES += ../pet/ubiquitous/PrintfWriter.cpp
 
 INCLUDE_DIRS += .
+INCLUDE_DIRS += ..
 INCLUDE_DIRS += ../jit
 INCLUDE_DIRS += ../analyzer
 
