@@ -5,6 +5,7 @@ SOURCES += TestAsm.cpp
 SOURCES += TestIsn.cpp
 SOURCES += TestRans.cpp
 SOURCES += TestDisasm.cpp
+SOURCES += TestModels.cpp
 SOURCES += TestPrinter.cpp
 SOURCES += TestBuilder.cpp
 SOURCES += TestAnalyzer.cpp

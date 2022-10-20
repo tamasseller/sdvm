@@ -1,0 +1,18 @@
+#ifndef CODEC_ARRAYREADER_H_
+#define CODEC_ARRAYREADER_H_
+
+#include <stdint.h>
+
+struct ArrayReader
+{
+	const uint8_t* p;
+
+	inline ArrayReader(decltype(p) data): p(data) {}
+
+	inline uint8_t operator ()()
+	{
+		return *p++;
+	}
+};
+
+#endif /* CODEC_ARRAYREADER_H_ */
