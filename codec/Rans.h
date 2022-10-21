@@ -75,6 +75,14 @@ namespace rans
 				x = (x << 8) | (uint8_t)r();
 			}
 		}
+
+		inline auto readState() const {
+			return x;
+		}
+
+		inline void writeState(decltype(x) x) {
+			this->x = x;
+		}
 	};
 }
 

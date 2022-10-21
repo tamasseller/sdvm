@@ -13,6 +13,14 @@ struct ArrayReader
 	{
 		return *p++;
 	}
+
+	inline auto readState() const {
+		return p;
+	}
+
+	inline void writeState(decltype(p) p) {
+		this->p = p;
+	}
 };
 
 #endif /* CODEC_ARRAYREADER_H_ */

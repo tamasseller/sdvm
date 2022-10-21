@@ -4,6 +4,7 @@ SOURCES += main.cpp
 SOURCES += TestAsm.cpp
 SOURCES += TestIsn.cpp
 SOURCES += TestRans.cpp
+SOURCES += TestCodec.cpp
 SOURCES += TestDisasm.cpp
 SOURCES += TestModels.cpp
 SOURCES += TestPrinter.cpp
