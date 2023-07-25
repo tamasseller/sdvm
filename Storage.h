@@ -1,160 +1,56 @@
 #ifndef STORAGE_H_
 #define STORAGE_H_
 
+#include "Type.h"
+
 #include "assert.h" // intentional single quote
 
 #include <stddef.h>
 #include <stdint.h>
+#include <memory>
+#include <map>
 
-class SlotMeta
+struct Storage
 {
-	/*
-	 * Free:  111111111
-	 * func:  110- ---m    <- TBD
-	 * typed: 10-- ---m    <- TBD
-	 * JS:    0vvv vaam
-	 *
-	 *  v: valueType, k: keyType, a: avlState, m: gcMark
-	 */
+	typedef uint32_t Ref;
 
-	static constexpr uint8_t notJsMask     = 0x80;
-	static constexpr uint8_t valueTypeMask = 0x71;
-	static constexpr uint8_t avlStateMask  = 0x06;
-	static constexpr uint8_t gcMarkMask    = 0x01;
+	static constexpr Ref null = 0;
 
-	static constexpr uint8_t notJsShift     = 7;
-	static constexpr uint8_t valueTypeShift = 3;
-	static constexpr uint8_t keyTypeShift   = 3;
-	static constexpr uint8_t avlStateShift  = 1;
+	Ref create(const Type* type);
+	size_t gc(Ref root);
 
-	uint8_t data = 0xff;
-
-public:
-	enum class ValueType: uint8_t
+	union Value
 	{
-		Integer,
-		Fractional,
-		Boolean,
-		Undefined,
-		Null,
-		Array,
-		Object,
-		Function,
-		String,
-		TypedArray
+		Ref reference;
+		int integer;
+		float floating;
+		bool logical;
+		void* buffer;
+
+		constexpr inline Value(): reference(null) {}
+		constexpr inline Value(Ref reference): reference(reference) {}
+		constexpr inline Value(int integer): integer(integer) {}
+		constexpr inline Value(float floating): floating(floating) {}
+		constexpr inline Value(bool logical): logical(logical) {}
+		constexpr inline Value(void* buffer): buffer(buffer) {}
 	};
 
-	inline constexpr SlotMeta() = default;
-	static inline constexpr auto free() { return SlotMeta(); }
-	inline constexpr SlotMeta(ValueType value, bool mark): data(
-		((uint8_t)value << valueTypeShift) |
-		((uint8_t)mark)
-	){}
+	const Type* getType(Ref ref) const;
+	Value read(Ref ref, size_t index) const;
+	void write(Ref ref, size_t index, Value value) const;
 
-	inline bool isJs() const {
-		return !(data & notJsMask);
-	}
+private:
+	void markWorker(Ref ref, bool mark);
 
-	inline bool isFree() const {
-		return data == 0xff;
-	}
-
-	inline ValueType getValueType() const
-	{
-		assert(isJs());
-		return (ValueType)(data >> valueTypeShift);
-	}
-
-
-};
-
-union Slot
-{
-	struct Js
-	{
-		using Key = int32_t;
-
-		union Data {
-			int n;
-			float f;
-			bool b;
-			Slot* ref;
-		};
-
-		Key key;
-		Slot *left, *right;
-		Data data;
-	} js;
-
-	struct Function
-	{
-		void* code;
-		Slot* closure;
-	} fn;
-
-	struct TypedArray
-	{
-		uint8_t raw[16];
-	} ta;
-
-	struct Free
-	{
-		Slot* next;
-	} free;
-};
-
-static_assert(sizeof(Slot) == 16);
-
-class Storage
-{
-	Slot *storage, *firstFree;
-	SlotMeta *metas;
-
-public:
-	Storage(Slot* storage, SlotMeta* meta, size_t count): storage(storage), firstFree(storage), metas(meta)
-	{
-		auto current = storage;
-
-		for(auto i = 0u; i < count - 1; i++)
-		{
-			storage[i].free.next = storage + i + 1;
-			meta[i] = SlotMeta::free();
-		}
-
-		storage[count -1].free.next = nullptr;
-	}
-
-	class SpaceStream
-	{
-		friend Storage;
-		Slot* head = nullptr;
-
-		SpaceStream(Slot* head): head(head) {}
-
-	public:
-		inline SpaceStream() = default;
-		inline SpaceStream(const SpaceStream&) = delete;
-		inline SpaceStream(SpaceStream&& o): head(o.head) { o.head = nullptr; }
-		inline ~SpaceStream() { assert(head == nullptr); }
-		inline bool operator ==(const nullptr_t&) { return head == nullptr; }
-		inline bool operator !=(const nullptr_t&) { return !(*this == nullptr); }
-		inline operator bool() { return *this != nullptr; }
-
-		inline Slot* consume()
-		{
-			auto ret = head;
-			head = head->free.next;
-			return ret;
-		}
+	struct Record {
+		bool mark;
+		const Type* type;
+		std::unique_ptr<Value[]> data;
 	};
 
-	SpaceStream acquire(size_t n);
-
-	void release(Slot* s);
-
-	inline SlotMeta &meta(Slot* slot) {
-		return metas[slot - storage];
-	}
+	uint32_t lastRef = 1;
+	bool mark = false;
+	std::map<Ref, Record> records;
 };
 
 #endif /* STORAGE_H_ */

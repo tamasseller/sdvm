@@ -4,50 +4,45 @@
 
 TEST_GROUP(Storage)
 {
-	Slot slots[16];
-	SlotMeta meta[16];
-	Storage uut = Storage(slots, meta, sizeof(slots)/sizeof(slots[0]));
+	const Type singleRef = {
+		.length = 1,
+		.refOffs = {0}
+	};
+
+	Storage uut;
 };
 
 TEST(Storage, Sanity)
 {
-	for(auto i = 0; i < 100; i++)
-	{
-		auto ret = uut.acquire(1);
-		CHECK(ret);
-		CHECK(ret != nullptr);
-		CHECK(!(ret == nullptr));
+	auto a = uut.create(&singleRef);
+	CHECK(uut.read(a, 0).reference == Storage::null);
+	CHECK(0 == uut.gc(a));
 
-		auto slot = ret.consume();
-		CHECK(!ret);
-		CHECK(ret == nullptr);
-		CHECK(!(ret != nullptr));
+	auto b = uut.create(&singleRef);
+	CHECK(uut.read(b, 0).reference == Storage::null);
+	CHECK(1 == uut.gc(a));
 
-		CHECK(slot);
+	auto c = uut.create(&singleRef);
+	CHECK(uut.read(a, 0).reference == Storage::null);
+	uut.write(a, 0, c);
+	CHECK(uut.read(a, 0).reference == c);
 
-		uut.release(slot);
-	}
+	CHECK(0 == uut.gc(a));
 }
 
-TEST(Storage, DepleteAtOnce)
+TEST(Storage, Loop)
 {
-	for(auto i = 0; i < 100; i++)
-	{
-		static constexpr auto n = sizeof(slots)/sizeof(slots[0]);
-		auto ret = uut.acquire(n);
-		CHECK(ret);
-		CHECK(ret != nullptr);
-		CHECK(!(ret == nullptr));
+	auto a = uut.create(&singleRef);
+	auto b = uut.create(&singleRef);
+	uut.write(a, 0, b);
+	auto c = uut.create(&singleRef);
+	uut.write(b, 0, c);
+	uut.write(c, 0, a);
 
-		for(auto j = 0u; j < n; j++)
-		{
-			auto slot = ret.consume();
-			CHECK(slot);
-			uut.release(slot);
-		}
+	CHECK(0 == uut.gc(a));
+	CHECK(0 == uut.gc(b));
+	CHECK(0 == uut.gc(c));
 
-		CHECK(!ret);
-		CHECK(ret == nullptr);
-		CHECK(!(ret != nullptr));
-	}
+	auto d = uut.create(&singleRef);
+	CHECK(3 == uut.gc(d));
 }
