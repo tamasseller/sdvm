@@ -3,25 +3,43 @@
 
 #include <stdint.h>
 
+enum class WriteBackType {
+	None, Val, Ref, Either
+};
+
+enum class StackReadType {
+	Zero, One, Two, ArgDep
+};
+
+#define INSTRUCTION_LIST() \
+	X(NewObject,     StackReadType::Zero,    WriteBackType::Ref)    /* push(create(arg)) */ \
+	X(PushLiteral,   StackReadType::Zero,    WriteBackType::Val)    /* push(arg) */ \
+	X(ReadValField,  StackReadType::One,     WriteBackType::Val)    /* push(read(pop(), arg)) */ \
+	X(ReadRefField,  StackReadType::One,     WriteBackType::Ref)    /* push(read(pop(), arg)) */ \
+	X(ReadValLocal,  StackReadType::Zero,    WriteBackType::Val)    /* push(read(<local>, arg)) */ \
+	X(ReadRefLocal,  StackReadType::Zero,    WriteBackType::Ref)    /* push(read(<local>, arg)) */ \
+	X(ReadValStatic, StackReadType::Zero,    WriteBackType::Val)    /* push(read(<static>, arg)) */ \
+	X(ReadRefStatic, StackReadType::Zero,    WriteBackType::Ref)    /* push(read(<static>, arg)) */ \
+	X(WriteField,  	 StackReadType::Two,     WriteBackType::None)   /* write(pop(), arg, pop()) */ \
+	X(WriteLocal,    StackReadType::One,     WriteBackType::None)   /* write(<local>, arg, pop()) */ \
+	X(WriteStatic,   StackReadType::One,     WriteBackType::None)   /* write(<static>, arg, pop()) */ \
+	X(Unary,         StackReadType::One,     WriteBackType::Val)    /* push(op<arg>(pop()) */ \
+	X(Binary,        StackReadType::Two,     WriteBackType::Val)    /* push(op<arg>(pop(), pop()) */ \
+	X(Jump,          StackReadType::Zero,    WriteBackType::None)   /* goto(arg) */ \
+	X(Cond,          StackReadType::One,     WriteBackType::None)   /* if(cond(pop())) { goto(arg); } */ \
+	X(Ret,           StackReadType::Zero,    WriteBackType::None)   /* ret() */ \
+	X(RetVal,        StackReadType::One,     WriteBackType::None)   /* ret(pop()) */ \
+	X(RetRef,        StackReadType::One,     WriteBackType::None)   /* ret(pop()... * args) */ \
+	X(CallV,         StackReadType::ArgDep,  WriteBackType::None)   /* call(pop(), pop()... * args) */ \
+	X(Call,	         StackReadType::ArgDep,  WriteBackType::Either) /* call(pop(), pop()... * args) */
+
 struct Instruction
 {
 	enum class Operation
 	{
-														//										pop	     push
-		PushLiteral, 									// push(arg)							0        1
-		ReadLocal, 	 									// push(read(<local>, arg))				0        1
-		ReadStatic, 	 								// push(read(<static>, arg))			0        1
-		NewObject,										// push(create(arg))					0        1
-		Call,											// call(pop(), pop()... * args);		0 (args) 0
-		Ret,											// ret(pop()... * args);				0 (args) 0
-		Jump, 											// goto(arg);							0        0
-		Cond,											// if(cond(pop())) { goto(arg); }		1        0
-		WriteLocal,  									// write(<local>, arg, pop()))			1        0
-		WriteStatic,  									// write(<static>, arg, pop()))			1        0
-		ReadField, 	 									// push(read(pop(), arg))				1        1
-		Unary,											// push(op<arg>(pop()))					1        1
-		Binary,											// push(op<arg>(pop(), pop()))			2        1
-		WriteField,  									// write(pop(), arg, pop()))			2        0
+#define X(name, popCount, wbType) name,
+		INSTRUCTION_LIST()
+#undef X
 	};
 
 	enum class BinaryOpType {
@@ -59,89 +77,116 @@ struct Instruction
 	Operation op;
 	Argument arg;
 
-	inline constexpr size_t popCount() const
+	static inline constexpr size_t getPopCountOf(StackReadType srt, size_t arg)
+	{
+		switch(srt)
+		{
+			case StackReadType::Zero:   return 0;
+			case StackReadType::One:    return 1;
+			case StackReadType::Two:    return 2;
+			default:
+			case StackReadType::ArgDep: return arg;
+		}
+	}
+
+	inline constexpr size_t popCount(size_t n = 0) const
 	{
 		switch(op)
 		{
-			case Operation::PushLiteral:
-			case Operation::ReadLocal:
-			case Operation::ReadStatic:
-			case Operation::NewObject:
-			case Operation::Call:
-			case Operation::Ret:
-			case Operation::Jump:
-				return 0u;
 
-			case Operation::Cond:
-			case Operation::WriteLocal:
-			case Operation::WriteStatic:
-			case Operation::ReadField:
-			case Operation::Unary:
-				return 1u;
-
-			case Operation::Binary:
-			case Operation::WriteField:
-				return 2u;
+#define X(name, popCount, wbType) case Operation:: name: return getPopCountOf(popCount, n);
+		INSTRUCTION_LIST()
+#undef X
 		}
 
 		return -1u;
 	}
 
-	inline constexpr bool doesWriteBack() const
+	inline constexpr bool doesValueWriteBack() const
 	{
 		switch(op)
 		{
-			case Operation::PushLiteral:
-			case Operation::ReadLocal:
-			case Operation::ReadStatic:
-			case Operation::NewObject:
-			case Operation::Call:
-			case Operation::Ret:
-				return true;
-
-			case Operation::Jump:
-			case Operation::Cond:
-			case Operation::WriteLocal:
-			case Operation::WriteStatic:
-				return false;
-
-			case Operation::ReadField:
-			case Operation::Unary:
-			case Operation::Binary:
-				return true;
-
-			case Operation::WriteField:
-			default:
-				return false;
+#define X(name, popCount, wbType) case Operation:: name: return wbType == WriteBackType::Val;
+		INSTRUCTION_LIST()
+#undef X
+		default: return false;
 		}
 	}
 
-	inline Instruction() = default;
+	inline constexpr bool doesReferenceWriteBack() const
+	{
+		switch(op)
+		{
+#define X(name, popCount, wbType) case Operation:: name: return wbType == WriteBackType::Ref;
+		INSTRUCTION_LIST()
+#undef X
+		default: return false;
+		}
+	}
+
+	inline constexpr bool doesNotWriteBack() const
+	{
+		switch(op)
+		{
+#define X(name, popCount, wbType) case Operation:: name: return wbType == WriteBackType::None;
+		INSTRUCTION_LIST()
+#undef X
+		default: return false;
+		}
+	}
+
+	int stackBalance() const {
+		return (doesNotWriteBack() ? 0 : 1) - popCount(arg.argumentCount);
+	}
+
+	inline Instruction() = default; // @suppress("Class members should be properly initialized")
+
 	inline Instruction(const Instruction&) = default;
+
 	constexpr inline Instruction(Operation op, Argument arg): op(op), arg(arg) {}
 
 	static constexpr inline Instruction literal(Storage::Value v) {
 		return {Operation::PushLiteral, v};
 	}
 
-	static constexpr inline Instruction readLocal(uint32_t offset) {
-		return {Operation::ReadLocal, offset};
+	static constexpr inline Instruction readValueLocal(uint32_t offset) {
+		return {Operation::ReadValLocal, offset};
 	}
 
-	static constexpr inline Instruction readStatic(uint32_t offset) {
-		return {Operation::ReadStatic, offset};
+	static constexpr inline Instruction readRefenceLocal(uint32_t offset) {
+		return {Operation::ReadRefLocal, offset};
+	}
+
+	static constexpr inline Instruction readValueStatic(uint32_t offset) {
+		return {Operation::ReadValStatic, offset};
+	}
+
+	static constexpr inline Instruction readRefenceStatic(uint32_t offset) {
+		return {Operation::ReadRefStatic, offset};
 	}
 
 	static constexpr inline Instruction newObject(const Type* type) {
 		return {Operation::NewObject, type};
 	}
 
-	static constexpr inline Instruction call(uint32_t count) {
+	static constexpr inline Instruction callNoRet(uint32_t count) {
+		return {Operation::CallV, count};
+	}
+
+	static constexpr inline Instruction callWithRet(uint32_t count) {
 		return {Operation::Call, count};
 	}
 
-	static constexpr inline Instruction ret(uint32_t count) {
-		return {Operation::Ret, count};
+	static constexpr inline Instruction ret() {
+		return {Operation::Ret, 0u};
+	}
+
+	static constexpr inline Instruction retRef() {
+		return {Operation::RetRef, 0u};
+	}
+
+	static constexpr inline Instruction retVal() {
+		return {Operation::RetVal, 0u};
 	}
 
 	static constexpr inline Instruction jump(uint32_t target) {
@@ -160,8 +205,12 @@ struct Instruction
 		return {Operation::WriteStatic, offset};
 	}
 
-	static constexpr inline Instruction readField(uint32_t offset) {
-		return {Operation::ReadField, offset};
+	static constexpr inline Instruction readValueField(uint32_t offset) {
+		return {Operation::ReadValField, offset};
+	}
+
+	static constexpr inline Instruction readReferenceField(uint32_t offset) {
+		return {Operation::ReadRefField, offset};
 	}
 
 	static constexpr inline Instruction unary(UnaryOpType op) {

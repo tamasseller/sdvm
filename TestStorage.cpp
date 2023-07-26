@@ -1,13 +1,11 @@
 #include "1test/Test.h"
 
 #include "Storage.h"
+#include "Type.h"
 
 TEST_GROUP(Storage)
 {
-	const Type singleRef = {
-		.length = 1,
-		.refOffs = {0}
-	};
+	const Type singleRef{nullptr, 1, {0}};
 
 	Storage uut;
 };

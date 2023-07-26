@@ -5,21 +5,60 @@ Vm::Vm(Storage& s, const Program &p):
 
 Storage::Ref Vm::createFrame(const Program::Function &f, Storage::Ref caller, std::vector<Storage::Value> &args, size_t argCount)
 {
-	assert(Program::Function::previousFrameOffset < f.frameType->length);
-	assert(Program::Function::executionPointOffset < f.frameType->length);
-	assert(argCount <= f.argOffsets.size());
-	assert(argCount < f.frameType->length);
+	assert(Program::Function::Frame::offsetToLocals + argCount <= f.frame.opStackOffset);
 
-	const auto ret = storage.create(f.frameType);
-	storage.write(ret, Program::Function::previousFrameOffset, caller);
-	storage.write(ret, Program::Function::executionPointOffset, 0);
+	const auto ret = storage.create(f.frame.frameType);
+	storage.write(ret, Program::Function::Frame::previousFrameOffset, caller);
 
-	for(auto it = f.argOffsets.begin(); it < f.argOffsets.begin() + argCount; it++)
+	for(auto i = 0u; i < argCount; i++)
 	{
-		storage.write(ret, *it, args.back());
+		storage.write(ret, Program::Function::Frame::offsetToLocals + i, args.back());
 		args.pop_back();
 	}
 
+	return ret;
+}
+
+inline Storage::Value Vm::StackState::pop(Storage& storage, Storage::Ref frame)
+{
+	auto ret = storage.read(frame, --stackPointer);
+
+	if(refChainEnd == stackPointer)
+	{
+		refChainEnd = storage.read(frame, --stackPointer).integer;
+	}
+
+	return ret;
+}
+
+inline void Vm::StackState::pushValue(Storage& storage, Storage::Ref frame, Storage::Value value)
+{
+	storage.write(frame, stackPointer++, value);
+}
+
+inline void Vm::StackState::pushReference(Storage& storage, Storage::Ref frame, Storage::Value value)
+{
+	storage.write(frame, stackPointer++, refChainEnd);
+	refChainEnd = stackPointer;
+	storage.write(frame, stackPointer++, value);
+}
+
+inline void Vm::StackState::preGcFlush(Storage& storage, Storage::Ref frame)
+{
+	storage.write(frame, Program::Function::Frame::opStackRefChainEndOffset, refChainEnd);
+}
+
+inline void Vm::StackState::store(Storage& storage, Storage::Ref frame)
+{
+	preGcFlush(storage, frame);
+	storage.write(frame, Program::Function::Frame::topOfStackOffset, stackPointer);
+}
+
+inline Vm::StackState Vm::StackState::load(Storage& storage, Storage::Ref frame)
+{
+	Vm::StackState ret;
+	ret.refChainEnd = storage.read(frame, Program::Function::Frame::opStackRefChainEndOffset).integer;
+	ret.stackPointer = storage.read(frame, Program::Function::Frame::topOfStackOffset).integer;
 	return ret;
 }
 
@@ -31,7 +70,8 @@ std::optional<Storage::Value> Vm::run(std::vector<Storage::Value> args)
 
 	auto currentFrame = createFrame(f, staticObject, args, args.size());
 
-	std::vector<Storage::Value> opStack;
+	StackState ss(f.frame.opStackOffset);
+
 	for(auto it = f.code.begin(); it != f.code.end();)
 	{
 		const auto &isn = *it++;
@@ -41,14 +81,10 @@ std::optional<Storage::Value> Vm::run(std::vector<Storage::Value> args)
 		switch(isn.popCount())
 		{
 			case 2:
-				assert(!opStack.empty());
-				in2 = opStack.back();
-				opStack.pop_back();
+				in2 = ss.pop(storage, currentFrame);
 				[[fallthrough]];
 			case 1:
-				assert(!opStack.empty());
-				in1out = opStack.back();
-				opStack.pop_back();
+				in1out = ss.pop(storage, currentFrame);
 				[[fallthrough]];
 			case 0:
 				break;
@@ -59,20 +95,16 @@ std::optional<Storage::Value> Vm::run(std::vector<Storage::Value> args)
 		case Instruction::Operation::PushLiteral:
 			in1out = isn.arg.literal;
 			break;
-		case Instruction::Operation::ReadLocal:
-			in1out = storage.read(currentFrame, isn.arg.fieldOffset);
+		case Instruction::Operation::ReadRefLocal:
+		case Instruction::Operation::ReadValLocal:
+			in1out = storage.read(currentFrame, Program::Function::Frame::offsetToLocals + isn.arg.fieldOffset);
 			break;
-		case Instruction::Operation::ReadStatic:
+		case Instruction::Operation::ReadRefStatic:
+		case Instruction::Operation::ReadValStatic:
 			in1out = storage.read(staticObject, isn.arg.fieldOffset);
 			break;
 		case Instruction::Operation::NewObject:
 			in1out = storage.create(isn.arg.type);
-			break;
-		case Instruction::Operation::Call:
-			// TODO
-			break;
-		case Instruction::Operation::Ret:
-			// TODO
 			break;
 		case Instruction::Operation::Jump:
 			it = f.code.begin() + isn.arg.jumpTarget;
@@ -84,12 +116,13 @@ std::optional<Storage::Value> Vm::run(std::vector<Storage::Value> args)
 			}
 			break;
 		case Instruction::Operation::WriteLocal:
-			storage.write(currentFrame, isn.arg.fieldOffset, in1out);
+			storage.write(currentFrame, Program::Function::Frame::offsetToLocals + isn.arg.fieldOffset, in1out);
 			break;
 		case Instruction::Operation::WriteStatic:
 			storage.write(staticObject, isn.arg.fieldOffset, in1out);
 			break;
-		case Instruction::Operation::ReadField:
+		case Instruction::Operation::ReadRefField:
+		case Instruction::Operation::ReadValField:
 			in1out = storage.read(in1out.reference, isn.arg.fieldOffset);
 			break;
 		case Instruction::Operation::Unary:
@@ -201,11 +234,42 @@ std::optional<Storage::Value> Vm::run(std::vector<Storage::Value> args)
 		case Instruction::Operation::WriteField:
 			storage.write(in1out.reference, isn.arg.fieldOffset, in2);
 			break;
+		case Instruction::Operation::Ret:
+			// TODO
+			break;
+		case Instruction::Operation::RetVal:
+		{
+			if(auto prevFrame = storage.read(currentFrame, Program::Function::Frame::previousFrameOffset).reference; prevFrame != staticObject)
+			{
+				ss = StackState::load(storage, prevFrame);
+				currentFrame = prevFrame;
+
+				ss.pushValue(storage, currentFrame, in1out);
+			}
+			else
+			{
+				return in1out;
+			}
+			break;
+		}
+		case Instruction::Operation::RetRef:
+			// TODO
+			break;
+		case Instruction::Operation::Call:
+			// TODO
+			break;
+		case Instruction::Operation::CallV:
+			// TODO
+			break;
 		}
 
-		if(isn.doesWriteBack())
+		if(isn.doesValueWriteBack())
 		{
-			opStack.push_back(in1out);
+			ss.pushValue(storage, currentFrame, in1out);
+		}
+		else if(isn.doesReferenceWriteBack())
+		{
+			ss.pushReference(storage, currentFrame, in1out);
 		}
 	}
 

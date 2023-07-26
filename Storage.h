@@ -1,14 +1,14 @@
 #ifndef STORAGE_H_
 #define STORAGE_H_
 
-#include "Type.h"
-
 #include "assert.h" // intentional single quote
 
 #include <stddef.h>
 #include <stdint.h>
 #include <memory>
 #include <map>
+
+class Type;
 
 struct Storage
 {

@@ -1,31 +1,19 @@
 #include "1test/Test.h"
 
-#include "Vm.h"
+#include "ProgramBuilder.h"
 
 TEST_GROUP(Vm)
 {
-	const Type emptyType = { .length = 0, .refOffs = {} };
-	const Type minimalFrame = { .length = 2, .refOffs = {0} };
 	Storage storage;
 };
 
 TEST(Vm, Sanity)
 {
-	Program p = {
-		.staticType = &emptyType,
-		.functions = {
-			 {
-				.frameType = &minimalFrame,
-				.argOffsets = {},
-				.retOffset = {},
-				.code = {
-					Instruction::literal(1),
-					Instruction::literal(2),
-					Instruction::binary(Instruction::BinaryOpType::AddI),
-				}
-			}
-		}
-	};
+	ProgramBuilder b;
 
-	Vm(storage, p).run({});
+	b.fun<int(int, int)>([](auto& fb){
+		fb.ret(fb.add(fb.template argVal<0>(), fb.template argVal<1>()));
+	});
+
+	CHECK(3 == Vm(storage, b).run({1, 2}).value().integer);
 }

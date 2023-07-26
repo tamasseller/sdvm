@@ -1,4 +1,5 @@
 #include "Storage.h"
+#include "Type.h"
 
 Storage::Ref Storage::create(const Type* type)
 {
@@ -40,7 +41,7 @@ void Storage::markWorker(Ref ref, bool mark)
 	{
 		record.mark = mark;
 
-		for(auto offset: record.type->referenceOffsets())
+		for(auto offset: record.type->referenceOffsets(this, ref))
 		{
 			assert(offset < record.type->getLength());
 
