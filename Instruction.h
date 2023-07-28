@@ -58,7 +58,7 @@ struct Instruction
 	union Argument
 	{
 		Storage::Value literal;
-		const Type* type;
+		const ObjectType* type;
 		uint32_t jumpTarget;
 		uint32_t fieldOffset;
 		uint32_t argumentCount;
@@ -68,7 +68,7 @@ struct Instruction
 		constexpr Argument() = default;
 		constexpr Argument(const Argument&) = default;
 		constexpr Argument(const Storage::Value &literal): literal(literal) {}
-		constexpr Argument(const Type* type): type(type) {}
+		constexpr Argument(const ObjectType* type): type(type) {}
 		constexpr Argument(uint32_t jumpTarget): jumpTarget(jumpTarget) {}
 		constexpr Argument(BinaryOpType binOp): binOp(binOp) {}
 		constexpr Argument(UnaryOpType unOp): unOp(unOp) {}
@@ -165,7 +165,7 @@ struct Instruction
 		return {Operation::ReadRefStatic, offset};
 	}
 
-	static constexpr inline Instruction newObject(const Type* type) {
+	static constexpr inline Instruction newObject(const ObjectType* type) {
 		return {Operation::NewObject, type};
 	}
 

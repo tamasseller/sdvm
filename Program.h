@@ -1,14 +1,14 @@
 #ifndef PROGRAM_H_
 #define PROGRAM_H_
 
-#include "Type.h"
 #include "Instruction.h"
 
 #include <optional>
+#include "ObjectType.h"
 
 struct Program
 {
-	const Type* staticType;
+	const ObjectType* staticType;
 
 	struct Function
 	{
@@ -21,7 +21,7 @@ struct Program
 
 			static constexpr auto callerStackExtra = 2;
 
-			static inline const Type base =
+			static inline const ObjectType base =
 			{
 				.base = nullptr,
 				.length = offsetToLocals,
@@ -29,7 +29,7 @@ struct Program
 			};
 
 			size_t opStackOffset;
-			const Type* frameType;
+			const ObjectType* frameType;
 		} ;
 
 		Frame frame;

@@ -1,14 +1,14 @@
+#include <ObjectType.h>
 #include "Storage.h"
-#include "Type.h"
 
-Storage::Ref Storage::create(const Type* type)
+Storage::Ref Storage::create(const ObjectType* type)
 {
 	auto ret = lastRef++;
 	records.emplace(std::make_pair(ret, Record{mark, type, std::unique_ptr<Value[]>(new Value[type->getLength()])}));
 	return ret;
 }
 
-const Type* Storage::getType(Ref ref) const
+const ObjectType* Storage::getType(Ref ref) const
 {
 	auto it = records.find(ref);
 	assert(it != records.end());

@@ -8,7 +8,7 @@
 #include <memory>
 #include <map>
 
-class Type;
+class ObjectType;
 
 struct Storage
 {
@@ -16,7 +16,7 @@ struct Storage
 
 	static constexpr Ref null = 0;
 
-	Ref create(const Type* type);
+	Ref create(const ObjectType* type);
 	size_t gc(Ref root);
 
 	union Value
@@ -35,7 +35,7 @@ struct Storage
 		constexpr inline Value(void* buffer): buffer(buffer) {}
 	};
 
-	const Type* getType(Ref ref) const;
+	const ObjectType* getType(Ref ref) const;
 	Value read(Ref ref, size_t index) const;
 	void write(Ref ref, size_t index, Value value) const;
 
@@ -44,7 +44,7 @@ private:
 
 	struct Record {
 		bool mark;
-		const Type* type;
+		const ObjectType* type;
 		std::unique_ptr<Value[]> data;
 	};
 

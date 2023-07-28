@@ -1,19 +1,19 @@
-#ifndef TYPE_H_
-#define TYPE_H_
+#ifndef OBJECTTYPE_H_
+#define OBJECTTYPE_H_
 
 #include <vector>
 
 #include "Storage.h"
 
-struct Type
+struct ObjectType
 {
-	const Type* base;
+	const ObjectType* base;
 	size_t length;
 	std::vector<size_t> refOffs;
 
-	inline Type(const Type* base, size_t length, std::vector<size_t> refOffs): base(base), length(length), refOffs(std::move(refOffs)) {}
+	inline ObjectType(const ObjectType* base, size_t length, std::vector<size_t> refOffs): base(base), length(length), refOffs(std::move(refOffs)) {}
 
-	inline virtual ~Type() = default;
+	inline virtual ~ObjectType() = default;
 
 	size_t getLength() const {
 		return (base ? base->getLength() : 0) + length;
@@ -29,4 +29,4 @@ struct Type
 	}
 };
 
-#endif /* TYPE_H_ */
+#endif /* OBJECTTYPE_H_ */

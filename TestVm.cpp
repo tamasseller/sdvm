@@ -11,8 +11,8 @@ TEST(Vm, Sanity)
 {
 	ProgramBuilder b;
 
-	b.fun<int(int, int)>([](auto& fb){
-		fb.ret(fb.add(fb.template argVal<0>(), fb.template argVal<1>()));
+	b.fun(SourceType::integer(), {SourceType::integer(), SourceType::integer()}, [](auto& fb){
+		fb.ret(fb.addi(fb.arg(0), fb.arg(1)));
 	});
 
 	CHECK(3 == Vm(storage, b).run({1, 2}).value().integer);

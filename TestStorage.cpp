@@ -1,11 +1,11 @@
+#include <ObjectType.h>
 #include "1test/Test.h"
 
 #include "Storage.h"
-#include "Type.h"
 
 TEST_GROUP(Storage)
 {
-	const Type singleRef{nullptr, 1, {0}};
+	const ObjectType singleRef{nullptr, 1, {0}};
 
 	Storage uut;
 };
