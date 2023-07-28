@@ -1,7 +1,8 @@
 OUTPUT = test
 
-SOURCES += Storage.cpp
-SOURCES += Vm.cpp
+SOURCES += object/Storage.cpp
+SOURCES += vm/Vm.cpp
+SOURCES += compiler/FunctionBuilder.cpp
 
 SOURCES += TestStorage.cpp
 SOURCES += TestVm.cpp

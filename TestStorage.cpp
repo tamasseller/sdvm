@@ -1,27 +1,27 @@
-#include <ObjectType.h>
+#include "object/Type.h"
 #include "1test/Test.h"
 
-#include "Storage.h"
+#include "object/Storage.h"
 
 TEST_GROUP(Storage)
 {
-	const ObjectType singleRef{nullptr, 1, {0}};
+	const obj::Type singleRef{nullptr, 1, {0}};
 
-	Storage uut;
+	obj::Storage uut;
 };
 
 TEST(Storage, Sanity)
 {
 	auto a = uut.create(&singleRef);
-	CHECK(uut.read(a, 0).reference == Storage::null);
+	CHECK(uut.read(a, 0).reference == obj::null);
 	CHECK(0 == uut.gc(a));
 
 	auto b = uut.create(&singleRef);
-	CHECK(uut.read(b, 0).reference == Storage::null);
+	CHECK(uut.read(b, 0).reference == obj::null);
 	CHECK(1 == uut.gc(a));
 
 	auto c = uut.create(&singleRef);
-	CHECK(uut.read(a, 0).reference == Storage::null);
+	CHECK(uut.read(a, 0).reference == obj::null);
 	uut.write(a, 0, c);
 	CHECK(uut.read(a, 0).reference == c);
 

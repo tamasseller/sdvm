@@ -1,13 +1,18 @@
 #ifndef INSTRUCTION_H_
 #define INSTRUCTION_H_
 
+#include "object/Type.h"
+#include "object/Value.h"
+
 #include <stdint.h>
 
-enum class WriteBackType {
+namespace prog {
+
+enum class WriteBackType { // TODO move into Instruction and make private
 	None, Val, Ref, Either
 };
 
-enum class StackReadType {
+enum class StackReadType { // TODO move into Instruction and make private
 	Zero, One, Two, ArgDep
 };
 
@@ -33,6 +38,11 @@ enum class StackReadType {
 	X(CallV,         StackReadType::ArgDep,  WriteBackType::None)   /* call(pop(), pop()... * args) */ \
 	X(Call,	         StackReadType::ArgDep,  WriteBackType::Either) /* call(pop(), pop()... * args) */
 
+	// TODO primitive typecasts
+	// TODO instanceof
+	// TODO throw
+	// TODO native call
+
 struct Instruction
 {
 	enum class Operation
@@ -57,8 +67,8 @@ struct Instruction
 
 	union Argument
 	{
-		Storage::Value literal;
-		const ObjectType* type;
+		obj::Value literal;
+		const obj::Type* type;
 		uint32_t jumpTarget;
 		uint32_t fieldOffset;
 		uint32_t argumentCount;
@@ -67,8 +77,8 @@ struct Instruction
 
 		constexpr Argument() = default;
 		constexpr Argument(const Argument&) = default;
-		constexpr Argument(const Storage::Value &literal): literal(literal) {}
-		constexpr Argument(const ObjectType* type): type(type) {}
+		constexpr Argument(const obj::Value &literal): literal(literal) {}
+		constexpr Argument(const obj::Type* type): type(type) {}
 		constexpr Argument(uint32_t jumpTarget): jumpTarget(jumpTarget) {}
 		constexpr Argument(BinaryOpType binOp): binOp(binOp) {}
 		constexpr Argument(UnaryOpType unOp): unOp(unOp) {}
@@ -145,7 +155,7 @@ struct Instruction
 
 	constexpr inline Instruction(Operation op, Argument arg): op(op), arg(arg) {}
 
-	static constexpr inline Instruction literal(Storage::Value v) {
+	static constexpr inline Instruction literal(obj::Value v) {
 		return {Operation::PushLiteral, v};
 	}
 
@@ -165,7 +175,7 @@ struct Instruction
 		return {Operation::ReadRefStatic, offset};
 	}
 
-	static constexpr inline Instruction newObject(const ObjectType* type) {
+	static constexpr inline Instruction newObject(const obj::Type* type) {
 		return {Operation::NewObject, type};
 	}
 
@@ -225,5 +235,7 @@ struct Instruction
 		return {Operation::WriteField, offset};
 	}
 };
+
+} //namespace prog
 
 #endif /* INSTRUCTION_H_ */

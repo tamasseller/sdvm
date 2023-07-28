@@ -1,19 +1,20 @@
 #include "1test/Test.h"
 
-#include "ProgramBuilder.h"
+#include "compiler/ProgramBuilder.h"
+#include "vm/Vm.h"
 
 TEST_GROUP(Vm)
 {
-	Storage storage;
+	obj::Storage storage;
 };
 
 TEST(Vm, Sanity)
 {
-	ProgramBuilder b;
+	comp::ProgramBuilder b;
 
-	b.fun(SourceType::integer(), {SourceType::integer(), SourceType::integer()}, [](auto& fb){
+	b.fun(comp::Type::integer(), {comp::Type::integer(), comp::Type::integer()}, [](auto& fb){
 		fb.ret(fb.addi(fb.arg(0), fb.arg(1)));
 	});
 
-	CHECK(3 == Vm(storage, b).run({1, 2}).value().integer);
+	CHECK(3 == vm::Vm(storage, b).run({1, 2}).value().integer);
 }

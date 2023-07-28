@@ -1,21 +1,23 @@
-#include <ObjectType.h>
+#include "Type.h"
 #include "Storage.h"
 
-Storage::Ref Storage::create(const ObjectType* type)
+using namespace obj;
+
+Reference Storage::create(const Type* type)
 {
 	auto ret = lastRef++;
 	records.emplace(std::make_pair(ret, Record{mark, type, std::unique_ptr<Value[]>(new Value[type->getLength()])}));
 	return ret;
 }
 
-const ObjectType* Storage::getType(Ref ref) const
+const Type* Storage::getType(Reference ref) const
 {
 	auto it = records.find(ref);
 	assert(it != records.end());
 	return it->second.type;
 }
 
-Storage::Value Storage::read(Ref ref, size_t offset) const
+Value Storage::read(Reference ref, size_t offset) const
 {
 	auto it = records.find(ref);
 	assert(it != records.end());
@@ -23,7 +25,7 @@ Storage::Value Storage::read(Ref ref, size_t offset) const
 	return it->second.data[offset];
 }
 
-void Storage::write(Ref ref, size_t offset, Value value) const
+void Storage::write(Reference ref, size_t offset, Value value) const
 {
 	auto it = records.find(ref);
 	assert(it != records.end());
@@ -31,7 +33,7 @@ void Storage::write(Ref ref, size_t offset, Value value) const
 	it->second.data[offset] = value;
 }
 
-void Storage::markWorker(Ref ref, bool mark)
+void Storage::markWorker(Reference ref, bool mark)
 {
 	auto it = records.find(ref);
 	assert(it != records.end());
@@ -53,7 +55,7 @@ void Storage::markWorker(Ref ref, bool mark)
 	}
 }
 
-size_t Storage::gc(Ref root)
+size_t Storage::gc(Reference root)
 {
 	markWorker(root, !mark);
 

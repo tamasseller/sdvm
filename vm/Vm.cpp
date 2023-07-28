@@ -1,25 +1,27 @@
 #include "Vm.h"
 
-Vm::Vm(Storage& s, const Program &p):
+using namespace vm;
+
+Vm::Vm(obj::Storage& s, const prog::Program &p):
 	storage(s), program(p), staticObject(s.create(p.staticType)) {}
 
-Storage::Ref Vm::createFrame(const Program::Function &f, Storage::Ref caller, std::vector<Storage::Value> &args, size_t argCount)
+obj::Reference Vm::createFrame(const prog::Function &f, obj::Reference caller, std::vector<obj::Value> &args, size_t argCount)
 {
-	assert(Program::Function::Frame::offsetToLocals + argCount <= f.frame.opStackOffset);
+	assert(prog::Frame::offsetToLocals + argCount <= f.frame.opStackOffset);
 
 	const auto ret = storage.create(f.frame.frameType);
-	storage.write(ret, Program::Function::Frame::previousFrameOffset, caller);
+	storage.write(ret, prog::Frame::previousFrameOffset, caller);
 
 	for(auto i = 0u; i < argCount; i++)
 	{
-		storage.write(ret, Program::Function::Frame::offsetToLocals + i, args.back());
+		storage.write(ret, prog::Frame::offsetToLocals + i, args.back());
 		args.pop_back();
 	}
 
 	return ret;
 }
 
-inline Storage::Value Vm::StackState::pop(Storage& storage, Storage::Ref frame)
+inline obj::Value Vm::StackState::pop(obj::Storage& storage, obj::Reference frame)
 {
 	auto ret = storage.read(frame, --stackPointer);
 
@@ -31,38 +33,38 @@ inline Storage::Value Vm::StackState::pop(Storage& storage, Storage::Ref frame)
 	return ret;
 }
 
-inline void Vm::StackState::pushValue(Storage& storage, Storage::Ref frame, Storage::Value value)
+inline void Vm::StackState::pushValue(obj::Storage& storage, obj::Reference frame, obj::Value value)
 {
 	storage.write(frame, stackPointer++, value);
 }
 
-inline void Vm::StackState::pushReference(Storage& storage, Storage::Ref frame, Storage::Value value)
+inline void Vm::StackState::pushReference(obj::Storage& storage, obj::Reference frame, obj::Value value)
 {
 	storage.write(frame, stackPointer++, refChainEnd);
 	refChainEnd = stackPointer;
 	storage.write(frame, stackPointer++, value);
 }
 
-inline void Vm::StackState::preGcFlush(Storage& storage, Storage::Ref frame)
+inline void Vm::StackState::preGcFlush(obj::Storage& storage, obj::Reference frame)
 {
-	storage.write(frame, Program::Function::Frame::opStackRefChainEndOffset, refChainEnd);
+	storage.write(frame, prog::Frame::opStackRefChainEndOffset, refChainEnd);
 }
 
-inline void Vm::StackState::store(Storage& storage, Storage::Ref frame)
+inline void Vm::StackState::store(obj::Storage& storage, obj::Reference frame)
 {
 	preGcFlush(storage, frame);
-	storage.write(frame, Program::Function::Frame::topOfStackOffset, stackPointer);
+	storage.write(frame, prog::Frame::topOfStackOffset, stackPointer);
 }
 
-inline Vm::StackState Vm::StackState::load(Storage& storage, Storage::Ref frame)
+inline Vm::StackState Vm::StackState::load(obj::Storage& storage, obj::Reference frame)
 {
 	Vm::StackState ret;
-	ret.refChainEnd = storage.read(frame, Program::Function::Frame::opStackRefChainEndOffset).integer;
-	ret.stackPointer = storage.read(frame, Program::Function::Frame::topOfStackOffset).integer;
+	ret.refChainEnd = storage.read(frame, prog::Frame::opStackRefChainEndOffset).integer;
+	ret.stackPointer = storage.read(frame, prog::Frame::topOfStackOffset).integer;
 	return ret;
 }
 
-std::optional<Storage::Value> Vm::run(std::vector<Storage::Value> args)
+std::optional<obj::Value> Vm::run(std::vector<obj::Value> args)
 {
 	assert(!program.functions.empty());
 
@@ -76,7 +78,7 @@ std::optional<Storage::Value> Vm::run(std::vector<Storage::Value> args)
 	{
 		const auto &isn = *it++;
 
-		Storage::Value in1out, in2;
+		obj::Value in1out, in2;
 
 		switch(isn.popCount())
 		{
@@ -92,154 +94,154 @@ std::optional<Storage::Value> Vm::run(std::vector<Storage::Value> args)
 
 		switch(isn.op)
 		{
-		case Instruction::Operation::PushLiteral:
+		case prog::Instruction::Operation::PushLiteral:
 			in1out = isn.arg.literal;
 			break;
-		case Instruction::Operation::ReadRefLocal:
-		case Instruction::Operation::ReadValLocal:
-			in1out = storage.read(currentFrame, Program::Function::Frame::offsetToLocals + isn.arg.fieldOffset);
+		case prog::Instruction::Operation::ReadRefLocal:
+		case prog::Instruction::Operation::ReadValLocal:
+			in1out = storage.read(currentFrame, prog::Frame::offsetToLocals + isn.arg.fieldOffset);
 			break;
-		case Instruction::Operation::ReadRefStatic:
-		case Instruction::Operation::ReadValStatic:
+		case prog::Instruction::Operation::ReadRefStatic:
+		case prog::Instruction::Operation::ReadValStatic:
 			in1out = storage.read(staticObject, isn.arg.fieldOffset);
 			break;
-		case Instruction::Operation::NewObject:
+		case prog::Instruction::Operation::NewObject:
 			in1out = storage.create(isn.arg.type);
 			break;
-		case Instruction::Operation::Jump:
+		case prog::Instruction::Operation::Jump:
 			it = f.code.begin() + isn.arg.jumpTarget;
 			break;
-		case Instruction::Operation::Cond:
+		case prog::Instruction::Operation::Cond:
 			if(in1out.logical)
 			{
 				it = f.code.begin() + isn.arg.jumpTarget;
 			}
 			break;
-		case Instruction::Operation::WriteLocal:
-			storage.write(currentFrame, Program::Function::Frame::offsetToLocals + isn.arg.fieldOffset, in1out);
+		case prog::Instruction::Operation::WriteLocal:
+			storage.write(currentFrame, prog::Frame::offsetToLocals + isn.arg.fieldOffset, in1out);
 			break;
-		case Instruction::Operation::WriteStatic:
+		case prog::Instruction::Operation::WriteStatic:
 			storage.write(staticObject, isn.arg.fieldOffset, in1out);
 			break;
-		case Instruction::Operation::ReadRefField:
-		case Instruction::Operation::ReadValField:
+		case prog::Instruction::Operation::ReadRefField:
+		case prog::Instruction::Operation::ReadValField:
 			in1out = storage.read(in1out.reference, isn.arg.fieldOffset);
 			break;
-		case Instruction::Operation::Unary:
+		case prog::Instruction::Operation::Unary:
 			switch(isn.arg.unOp)
 			{
-			case Instruction::UnaryOpType::Not:
+			case prog::Instruction::UnaryOpType::Not:
 				in1out.logical = !in1out.logical;
 				break;
-			case Instruction::UnaryOpType::BitwiseNegate:
+			case prog::Instruction::UnaryOpType::BitwiseNegate:
 				in1out.integer = ~in1out.integer;
 				break;
 			}
 			break;
-		case Instruction::Operation::Binary:
+		case prog::Instruction::Operation::Binary:
 			switch(isn.arg.binOp)
 			{
-			case Instruction::BinaryOpType::AddI:
+			case prog::Instruction::BinaryOpType::AddI:
 				in1out.integer = in1out.integer + in2.integer;
 				break;
-			case Instruction::BinaryOpType::MulI:
+			case prog::Instruction::BinaryOpType::MulI:
 				in1out.integer = in1out.integer * in2.integer;
 				break;
-			case Instruction::BinaryOpType::SubI:
+			case prog::Instruction::BinaryOpType::SubI:
 				in1out.integer = in1out.integer - in2.integer;
 				break;
-			case Instruction::BinaryOpType::DivI:
+			case prog::Instruction::BinaryOpType::DivI:
 				in1out.integer = in1out.integer / in2.integer;
 				break;
-			case Instruction::BinaryOpType::Mod:
+			case prog::Instruction::BinaryOpType::Mod:
 				in1out.integer = in1out.integer % in2.integer;
 				break;
-			case Instruction::BinaryOpType::ShlI:
+			case prog::Instruction::BinaryOpType::ShlI:
 				in1out.integer = in1out.integer << in2.integer;
 				break;
-			case Instruction::BinaryOpType::ShrI:
+			case prog::Instruction::BinaryOpType::ShrI:
 				in1out.integer = in1out.integer >> in2.integer;
 				break;
-			case Instruction::BinaryOpType::ShrU:
+			case prog::Instruction::BinaryOpType::ShrU:
 				in1out.integer = (unsigned int)in1out.integer >> in2.integer;
 				break;
-			case Instruction::BinaryOpType::AndI:
+			case prog::Instruction::BinaryOpType::AndI:
 				in1out.integer = in1out.integer & in2.integer;
 				break;
-			case Instruction::BinaryOpType::OrI:
+			case prog::Instruction::BinaryOpType::OrI:
 				in1out.integer = in1out.integer | in2.integer;
 				break;
-			case Instruction::BinaryOpType::XorI:
+			case prog::Instruction::BinaryOpType::XorI:
 				in1out.integer = in1out.integer ^ in2.integer;
 				break;
-			case Instruction::BinaryOpType::EqI:
+			case prog::Instruction::BinaryOpType::EqI:
 				in1out.logical = in1out.integer == in2.integer;
 				break;
-			case Instruction::BinaryOpType::NeI:
+			case prog::Instruction::BinaryOpType::NeI:
 				in1out.logical = in1out.integer != in2.integer;
 				break;
-			case Instruction::BinaryOpType::LtI:
+			case prog::Instruction::BinaryOpType::LtI:
 				in1out.logical = in1out.integer < in2.integer;
 				break;
-			case Instruction::BinaryOpType::GtI:
+			case prog::Instruction::BinaryOpType::GtI:
 				in1out.logical = in1out.integer > in2.integer;
 				break;
-			case Instruction::BinaryOpType::LeI:
+			case prog::Instruction::BinaryOpType::LeI:
 				in1out.logical = in1out.integer <= in2.integer;
 				break;
-			case Instruction::BinaryOpType::GeI:
+			case prog::Instruction::BinaryOpType::GeI:
 				in1out.logical = in1out.integer >= in2.integer;
 				break;
-			case Instruction::BinaryOpType::AddF:
+			case prog::Instruction::BinaryOpType::AddF:
 				in1out.floating = in1out.floating + in2.floating;
 				break;
-			case Instruction::BinaryOpType::MulF:
+			case prog::Instruction::BinaryOpType::MulF:
 				in1out.floating = in1out.floating * in2.floating;
 				break;
-			case Instruction::BinaryOpType::SubF:
+			case prog::Instruction::BinaryOpType::SubF:
 				in1out.floating = in1out.floating - in2.floating;
 				break;
-			case Instruction::BinaryOpType::DivF:
+			case prog::Instruction::BinaryOpType::DivF:
 				in1out.floating = in1out.floating / in2.floating;
 				break;
-			case Instruction::BinaryOpType::EqF:
+			case prog::Instruction::BinaryOpType::EqF:
 				in1out.logical = in1out.floating == in2.floating;
 				break;
-			case Instruction::BinaryOpType::NeF:
+			case prog::Instruction::BinaryOpType::NeF:
 				in1out.logical = in1out.floating != in2.floating;
 				break;
-			case Instruction::BinaryOpType::LtF:
+			case prog::Instruction::BinaryOpType::LtF:
 				in1out.logical = in1out.floating < in2.floating;
 				break;
-			case Instruction::BinaryOpType::GtF:
+			case prog::Instruction::BinaryOpType::GtF:
 				in1out.logical = in1out.floating > in2.floating;
 				break;
-			case Instruction::BinaryOpType::LeF:
+			case prog::Instruction::BinaryOpType::LeF:
 				in1out.logical = in1out.floating <= in2.floating;
 				break;
-			case Instruction::BinaryOpType::GeF:
+			case prog::Instruction::BinaryOpType::GeF:
 				in1out.logical = in1out.floating >= in2.floating;
 				break;
-			case Instruction::BinaryOpType::And:
+			case prog::Instruction::BinaryOpType::And:
 				in1out.logical = in1out.logical && in2.logical;
 				break;
-			case Instruction::BinaryOpType::Or:
+			case prog::Instruction::BinaryOpType::Or:
 				in1out.logical = in1out.logical || in2.logical;
 				break;
-			case Instruction::BinaryOpType::Xor:
+			case prog::Instruction::BinaryOpType::Xor:
 				in1out.logical = in1out.logical ^ in2.logical;
 				break;
 			}
 			break;
-		case Instruction::Operation::WriteField:
+		case prog::Instruction::Operation::WriteField:
 			storage.write(in1out.reference, isn.arg.fieldOffset, in2);
 			break;
-		case Instruction::Operation::Ret:
+		case prog::Instruction::Operation::Ret:
 			// TODO
 			break;
-		case Instruction::Operation::RetVal:
+		case prog::Instruction::Operation::RetVal:
 		{
-			if(auto prevFrame = storage.read(currentFrame, Program::Function::Frame::previousFrameOffset).reference; prevFrame != staticObject)
+			if(auto prevFrame = storage.read(currentFrame, prog::Frame::previousFrameOffset).reference; prevFrame != staticObject)
 			{
 				ss = StackState::load(storage, prevFrame);
 				currentFrame = prevFrame;
@@ -252,13 +254,13 @@ std::optional<Storage::Value> Vm::run(std::vector<Storage::Value> args)
 			}
 			break;
 		}
-		case Instruction::Operation::RetRef:
+		case prog::Instruction::Operation::RetRef:
 			// TODO
 			break;
-		case Instruction::Operation::Call:
+		case prog::Instruction::Operation::Call:
 			// TODO
 			break;
-		case Instruction::Operation::CallV:
+		case prog::Instruction::Operation::CallV:
 			// TODO
 			break;
 		}
