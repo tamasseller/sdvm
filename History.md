@@ -58,6 +58,7 @@ design choices
    - breakpoint at any bytcode isn
    - no preemption
    - GC possible only at predictable points
- - locals & opstack (stack frames)
+ - invocation mechanism
+   - locals & opstack (stack frames)
    - co-routine support (suspendability for async/await)
    - opstack traceability (imprecise vs runtime val/ref tracking vs pre-cooked table)

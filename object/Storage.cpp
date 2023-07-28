@@ -43,7 +43,7 @@ void Storage::markWorker(Reference ref, bool mark)
 	{
 		record.mark = mark;
 
-		for(auto offset: record.type->referenceOffsets(this, ref))
+		for(auto offset: record.type->tracer(record.type, this, ref))
 		{
 			assert(offset < record.type->getLength());
 

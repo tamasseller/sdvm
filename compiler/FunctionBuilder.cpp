@@ -1,4 +1,5 @@
 #include "FunctionBuilder.h"
+#include "ProgramBuilder.h"
 #include "FrameType.h"
 
 using namespace comp;
@@ -23,17 +24,16 @@ FunctionBuilder::FunctionBuilder(std::optional<Type> ret, std::vector<Type> args
 	}
 }
 
-prog::Function FunctionBuilder::operator()(std::vector<std::unique_ptr<obj::Type>> &holder)
+prog::Function FunctionBuilder::operator()(std::vector<obj::Type>& types)
 {
-	auto h = std::make_unique<FrameType>(nextLocal, std::move(frameRefIndices), maxStackDepth);
-	auto t = h.get();
-	holder.push_back(std::move(h));
+	const auto frameTypeIndex = types.size();
+	types.push_back(makeFrameType(nextLocal, std::move(frameRefIndices), maxStackDepth + (hasCall ? prog::Frame::callerStackExtra : 0)));
 
 	prog::Function ret =
 	{
 		.frame = prog::Frame {
-			.opStackOffset = prog::Frame::offsetToLocals + nextLocal + (hasCall ? prog::Frame::callerStackExtra : 0),
-			.frameType = t
+			.opStackOffset = prog::Frame::offsetToLocals + nextLocal,
+			.frameTypeIndex = frameTypeIndex
 		},
 		.code = std::move(code)
 	};

@@ -3,13 +3,14 @@
 using namespace vm;
 
 Vm::Vm(obj::Storage& s, const prog::Program &p):
-	storage(s), program(p), staticObject(s.create(p.staticType)) {}
+	storage(s), program(p), staticObject(s.create(&p.types.front())) {}
 
 obj::Reference Vm::createFrame(const prog::Function &f, obj::Reference caller, std::vector<obj::Value> &args, size_t argCount)
 {
 	assert(prog::Frame::offsetToLocals + argCount <= f.frame.opStackOffset);
+	assert(f.frame.frameTypeIndex < program.types.size());
 
-	const auto ret = storage.create(f.frame.frameType);
+	const auto ret = storage.create(&program.types[f.frame.frameTypeIndex]);
 	storage.write(ret, prog::Frame::previousFrameOffset, caller);
 
 	for(auto i = 0u; i < argCount; i++)
@@ -99,33 +100,34 @@ std::optional<obj::Value> Vm::run(std::vector<obj::Value> args)
 			break;
 		case prog::Instruction::Operation::ReadRefLocal:
 		case prog::Instruction::Operation::ReadValLocal:
-			in1out = storage.read(currentFrame, prog::Frame::offsetToLocals + isn.arg.fieldOffset);
+			in1out = storage.read(currentFrame, prog::Frame::offsetToLocals + isn.arg.index);
 			break;
 		case prog::Instruction::Operation::ReadRefStatic:
 		case prog::Instruction::Operation::ReadValStatic:
-			in1out = storage.read(staticObject, isn.arg.fieldOffset);
+			in1out = storage.read(staticObject, isn.arg.index);
 			break;
 		case prog::Instruction::Operation::NewObject:
-			in1out = storage.create(isn.arg.type);
+			assert(isn.arg.index < program.types.size());
+			in1out = storage.create(&program.types[isn.arg.index]);
 			break;
 		case prog::Instruction::Operation::Jump:
-			it = f.code.begin() + isn.arg.jumpTarget;
+			it = f.code.begin() + isn.arg.index;
 			break;
 		case prog::Instruction::Operation::Cond:
 			if(in1out.logical)
 			{
-				it = f.code.begin() + isn.arg.jumpTarget;
+				it = f.code.begin() + isn.arg.index;
 			}
 			break;
 		case prog::Instruction::Operation::WriteLocal:
-			storage.write(currentFrame, prog::Frame::offsetToLocals + isn.arg.fieldOffset, in1out);
+			storage.write(currentFrame, prog::Frame::offsetToLocals + isn.arg.index, in1out);
 			break;
 		case prog::Instruction::Operation::WriteStatic:
-			storage.write(staticObject, isn.arg.fieldOffset, in1out);
+			storage.write(staticObject, isn.arg.index, in1out);
 			break;
 		case prog::Instruction::Operation::ReadRefField:
 		case prog::Instruction::Operation::ReadValField:
-			in1out = storage.read(in1out.reference, isn.arg.fieldOffset);
+			in1out = storage.read(in1out.reference, isn.arg.index);
 			break;
 		case prog::Instruction::Operation::Unary:
 			switch(isn.arg.unOp)
@@ -234,7 +236,7 @@ std::optional<obj::Value> Vm::run(std::vector<obj::Value> args)
 			}
 			break;
 		case prog::Instruction::Operation::WriteField:
-			storage.write(in1out.reference, isn.arg.fieldOffset, in2);
+			storage.write(in1out.reference, isn.arg.index, in2);
 			break;
 		case prog::Instruction::Operation::Ret:
 			// TODO

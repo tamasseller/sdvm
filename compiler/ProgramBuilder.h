@@ -1,6 +1,7 @@
 #ifndef PROGRAMBUILDER_H_
 #define PROGRAMBUILDER_H_
 
+#include "ClassBuilder.h"
 #include "FunctionBuilder.h"
 
 #include "program/Instruction.h"
@@ -11,22 +12,30 @@
 
 namespace comp {
 
-class ProgramBuilder: public prog::Program
+class ProgramBuilder
 {
-	std::vector<std::unique_ptr<obj::Type>> types;
-	static inline const obj::Type emptyType = { .base = nullptr, .length = 0, .refOffs = {} };
+	friend FunctionBuilder;
+
+	std::vector<std::unique_ptr<ClassBuilder>> types;
+	std::vector<std::unique_ptr<FunctionBuilder>> functions;
 
 public:
-	inline ProgramBuilder() {
-		staticType = &emptyType;
-	}
+	template<class Target>
+	class Handle
+	{
+		std::vector<std::unique_ptr<Target>> &target;
+		friend ProgramBuilder;
 
-	template<class C>
-	inline void fun(std::optional<Type> ret, std::vector<Type> args, C&& c) {
-		auto fb = FunctionBuilder(ret, args);
-		c(fb);
-		functions.push_back(fb(types));
-	}
+		inline Handle(std::vector<std::unique_ptr<Target>> &target, const size_t idx): target(target), idx(idx) {}
+
+	public:
+		const size_t idx;
+		inline auto operator ->() const { return target[idx].get(); }
+	};
+
+	Handle<FunctionBuilder> fun(std::optional<Type> ret, std::vector<Type> args);
+	Handle<ClassBuilder> type(std::optional<Handle<ClassBuilder>> base = {});
+	prog::Program operator()();
 };
 
 } // namespace comp

@@ -1,7 +1,6 @@
 #ifndef INSTRUCTION_H_
 #define INSTRUCTION_H_
 
-#include "object/Type.h"
 #include "object/Value.h"
 
 #include <stdint.h>
@@ -68,18 +67,14 @@ struct Instruction
 	union Argument
 	{
 		obj::Value literal;
-		const obj::Type* type;
-		uint32_t jumpTarget;
-		uint32_t fieldOffset;
-		uint32_t argumentCount;
+		uint32_t index; // type/field/jump offset or argument count;
 		BinaryOpType binOp;
 		UnaryOpType unOp;
 
 		constexpr Argument() = default;
 		constexpr Argument(const Argument&) = default;
 		constexpr Argument(const obj::Value &literal): literal(literal) {}
-		constexpr Argument(const obj::Type* type): type(type) {}
-		constexpr Argument(uint32_t jumpTarget): jumpTarget(jumpTarget) {}
+		constexpr Argument(uint32_t index): index(index) {}
 		constexpr Argument(BinaryOpType binOp): binOp(binOp) {}
 		constexpr Argument(UnaryOpType unOp): unOp(unOp) {}
 	};
@@ -146,7 +141,7 @@ struct Instruction
 	}
 
 	int stackBalance() const {
-		return (doesNotWriteBack() ? 0 : 1) - popCount(arg.argumentCount);
+		return (doesNotWriteBack() ? 0 : 1) - popCount(arg.index);
 	}
 
 	inline Instruction() = default; // @suppress("Class members should be properly initialized")
@@ -175,8 +170,8 @@ struct Instruction
 		return {Operation::ReadRefStatic, offset};
 	}
 
-	static constexpr inline Instruction newObject(const obj::Type* type) {
-		return {Operation::NewObject, type};
+	static constexpr inline Instruction newObject(uint32_t typeIndex) {
+		return {Operation::NewObject, typeIndex};
 	}
 
 	static constexpr inline Instruction callNoRet(uint32_t count) {

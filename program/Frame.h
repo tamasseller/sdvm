@@ -22,7 +22,7 @@ struct Frame
 	};
 
 	size_t opStackOffset;
-	const obj::Type* frameType;
+	uint32_t frameTypeIndex;
 };
 
 } //namespace prog

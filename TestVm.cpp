@@ -12,9 +12,8 @@ TEST(Vm, Sanity)
 {
 	comp::ProgramBuilder b;
 
-	b.fun(comp::Type::integer(), {comp::Type::integer(), comp::Type::integer()}, [](auto& fb){
-		fb.ret(fb.addi(fb.arg(0), fb.arg(1)));
-	});
+	auto f = b.fun(comp::Type::integer(), {comp::Type::integer(), comp::Type::integer()});
+	f->ret(f->addi(f->arg(0), f->arg(1)));
 
-	CHECK(3 == vm::Vm(storage, b).run({1, 2}).value().integer);
+	CHECK(3 == vm::Vm(storage, b()).run({1, 2}).value().integer);
 }

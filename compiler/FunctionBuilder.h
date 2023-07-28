@@ -11,6 +11,8 @@
 
 namespace comp {
 
+class ProgramBuilder;
+
 class FunctionBuilder
 {
 	friend class ProgramBuilder;
@@ -24,18 +26,18 @@ class FunctionBuilder
 	int stackDepth = 0, maxStackDepth = 0;
 	bool hasCall = false;
 
-
 	void write(prog::Instruction isn);
 	FunctionBuilder(const FunctionBuilder&) = delete;
 	FunctionBuilder(FunctionBuilder&&) = delete;
-	FunctionBuilder(std::optional<Type> ret, std::vector<Type> args);
-	prog::Function operator()(std::vector<std::unique_ptr<obj::Type>> &holder);
+	prog::Function operator()(std::vector<obj::Type>&);
 
 public:
+	FunctionBuilder(std::optional<Type> ret, std::vector<Type> args);
+
 	RValue arg(size_t n);
 	RValue addi(const RValue& a, const RValue& b);
 	void ret(const RValue& v);
-	void ret() ;
+	void ret();
 };
 
 } //namespace comp

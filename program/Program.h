@@ -9,7 +9,10 @@ namespace prog {
 
 struct Program
 {
-	const obj::Type* staticType;
+	// First entry is the global object
+	std::vector<obj::Type> types;
+
+	// First entry is the entry point
 	std::vector<Function> functions;
 };
 
