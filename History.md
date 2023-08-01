@@ -62,3 +62,9 @@ design choices
    - locals & opstack (stack frames)
    - co-routine support (suspendability for async/await)
    - opstack traceability (imprecise vs runtime val/ref tracking vs pre-cooked table)
+
+implementation notes
+--------------------
+
+ - multiple transformation steps with gradual desugaring -> information filtering, extraction and structuring
+ 

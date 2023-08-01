@@ -2,17 +2,21 @@
 
 using namespace comp;
 
-ProgramBuilder::Handle<FunctionBuilder> ProgramBuilder::fun(std::optional<Type> ret, std::vector<Type> args)
+ProgramBuilder::ProgramBuilder() {
+	globalBuilder = type();
+}
+
+ProgramBuilder::Function ProgramBuilder::fun(std::optional<ValueType> ret, std::vector<ValueType> args)
 {
 	auto idx = functions.size();
-	functions.push_back(std::make_unique<FunctionBuilder>(ret, args));
+	functions.push_back(std::make_unique<FunctionBuilder>(*this, ret, args));
 	return {functions, idx};
 }
 
-ProgramBuilder::Handle<ClassBuilder> ProgramBuilder::type(std::optional<Handle<ClassBuilder>> base)
+ProgramBuilder::Class ProgramBuilder::type(std::optional<Handle<ClassBuilder>> base, bool isFrame)
 {
 	auto idx = types.size();
-	types.push_back(std::make_unique<ClassBuilder>(base.has_value() ? base->idx : std::optional<uint32_t>{}));
+	types.push_back(std::make_unique<ClassBuilder>(idx, base.has_value() ? base->idx : std::optional<uint32_t>{}, isFrame));
 	return {types, idx};
 }
 
@@ -20,14 +24,22 @@ prog::Program ProgramBuilder::operator()()
 {
 	prog::Program ret;
 
-	// Add global object
-	ret.types.push_back(obj::Type::empty);
+	// Generate code and function meta-data
+	std::transform(functions.cbegin(), functions.cend(), std::back_inserter(ret.functions), [&ret](const auto& f){ return (*f)();});
 
-	// Add classes
-	std::transform(types.cbegin(), types.cend(), std::back_inserter(ret.types), [](const auto& t){ return (*t)();});
-
-	// Add functions (and frame object types)
-	std::transform(functions.cbegin(), functions.cend(), std::back_inserter(ret.functions), [&ret](const auto& f){ return (*f)(ret.types);});
+	// Generate runtime type info
+	std::transform(types.cbegin(), types.cend(), std::back_inserter(ret.types), [&ret](const auto& t){ return (*t)();});
 
 	return ret;
+}
+
+uint32_t ProgramBuilder::getFieldOffset(ClassBuilder::FieldHandle f) const
+{
+	auto baseSize = 0u;
+	for(auto idx = f.typeIdx; types[f.typeIdx]->baseIdx; idx = *types[f.typeIdx]->baseIdx)
+	{
+		baseSize += types[idx]->size();
+	}
+
+	return baseSize + f.fieldIdx;
 }

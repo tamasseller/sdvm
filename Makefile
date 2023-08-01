@@ -1,9 +1,10 @@
 OUTPUT = test
 
 SOURCES += vm/Vm.cpp
-SOURCES += object/Type.cpp
 SOURCES += object/Storage.cpp
-SOURCES += compiler/FrameType.cpp
+SOURCES += object/TypeInfo.cpp
+SOURCES += compiler/CodeWriter.cpp
+SOURCES += compiler/ClassBuilder.cpp
 SOURCES += compiler/FunctionBuilder.cpp
 SOURCES += compiler/ProgramBuilder.cpp
 
@@ -16,6 +17,7 @@ SOURCES += pet/1test/TestRunnerExperimental.cpp
 INCLUDE_DIRS += .
 
 CXXFLAGS += -std=c++17 -O0 -g3 -m32 -Wall
+CXXFLAGS += -fmax-errors=6
 
 LDFLAGS += -m32
 

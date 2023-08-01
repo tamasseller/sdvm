@@ -1,8 +1,11 @@
 #ifndef COMPILER_FUNCTIONBUILDER_H_
 #define COMPILER_FUNCTIONBUILDER_H_
 
-#include "Type.h"
+#include "Handle.h"
+#include "ClassBuilder.h"
+
 #include "RValue.h"
+#include "ValueType.h"
 
 #include "program/Function.h"
 #include "object/Storage.h"
@@ -17,25 +20,29 @@ class FunctionBuilder
 {
 	friend class ProgramBuilder;
 
-	std::optional<Type> retType;
-	std::vector<Type> args;
-	size_t nextLocal;
-	std::vector<size_t> frameRefIndices;
-	std::vector<prog::Instruction> code;
+	ProgramBuilder& pb;
+	std::optional<ValueType> retType;
+	std::vector<ValueType> argTypes;
+	std::vector<std::function<void(CodeWriter&)>> code;
 
-	int stackDepth = 0, maxStackDepth = 0;
-	bool hasCall = false;
-
-	void write(prog::Instruction isn);
 	FunctionBuilder(const FunctionBuilder&) = delete;
 	FunctionBuilder(FunctionBuilder&&) = delete;
-	prog::Function operator()(std::vector<obj::Type>&);
+	prog::Function operator()();
+
+	Handle<ClassBuilder> frameBuilder;
 
 public:
-	FunctionBuilder(std::optional<Type> ret, std::vector<Type> args);
+	FunctionBuilder(ProgramBuilder& pb, std::optional<ValueType> ret, std::vector<ValueType> args);
+
+	template<class... Args>
+	auto addLocal(Args&&... args) {
+		return frameBuilder->addField(std::forward<Args>(args)...);
+	}
 
 	RValue arg(size_t n);
+	RValue create(Handle<ClassBuilder> t);
 	RValue addi(const RValue& a, const RValue& b);
+	void setLocal(const ClassBuilder::FieldHandle &l, const RValue& b);
 	void ret(const RValue& v);
 	void ret();
 };

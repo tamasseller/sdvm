@@ -1,15 +1,20 @@
 #ifndef COMPILER_RVALUE_H_
 #define COMPILER_RVALUE_H_
 
-#include "Type.h"
+#include "ValueType.h"
+
+#include "program/Instruction.h"
 
 #include <functional>
+#include <vector>
 
 namespace comp {
 
+class CodeWriter;
+
 struct RValue {
-	Type type;
-	std::function<void()> manifest;
+	ValueType type;
+	std::function<void(CodeWriter&)> manifest;
 };
 
 } //namespace comp

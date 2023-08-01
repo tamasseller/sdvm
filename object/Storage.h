@@ -3,6 +3,8 @@
 
 #include "Value.h"
 
+#include "program/Program.h"
+
 #include "assert.h" // intentional single quote
 
 #include <stddef.h>
@@ -12,23 +14,23 @@
 
 namespace obj {
 
-class Type;
+class TypeInfo;
 
 struct Storage
 {
-	Reference create(const Type* type);
-	size_t gc(Reference root);
+	Reference create(const prog::Program& program, uint32_t idx);
+	size_t gc(const prog::Program& program, Reference root);
 
-	const Type* getType(Reference ref) const;
-	Value read(Reference, size_t index) const;
-	void write(Reference ref, size_t index, Value value) const;
+	const TypeInfo& getType(const prog::Program& program, Reference ref) const;
+	Value read(const prog::Program& program, Reference, size_t index) const;
+	void write(const prog::Program& program, Reference ref, size_t index, Value value) const;
 
 private:
-	void markWorker(Reference ref, bool mark);
+	void markWorker(const prog::Program& program, Reference ref, bool mark);
 
 	struct Record {
 		bool mark;
-		const Type* type;
+		uint32_t typeIdx;
 		std::unique_ptr<Value[]> data;
 	};
 

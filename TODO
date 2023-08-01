@@ -1,8 +1,7 @@
-implement class builder
 implement field access
 implement local variable access
 implement global variable access
-remove ref/val instructuctions, instead gather info during compilation and emit table for call and create isns
+gather info during compilation and emit opstack ref/val table
 implement table based frameTracer
 implement typecasts
 implement more primitive types (char+short and unsigned?)

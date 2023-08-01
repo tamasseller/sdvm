@@ -3,6 +3,7 @@
 
 #include "object/Storage.h"
 #include "program/Program.h"
+#include "program/Function.h"
 
 namespace vm {
 
@@ -10,28 +11,32 @@ class Vm
 {
 	obj::Storage& storage;
 	const prog::Program &program;
-	const obj::Reference staticObject;
+	obj::Reference staticObject;
 
-	class StackState
+	class ExecutionState
 	{
+		obj::Reference frame = obj::null;
 		uint32_t stackPointer = 0;
-		uint32_t refChainEnd = 0;
-
-		inline StackState() = default;
+		uint32_t functionIndex = 0;
+		decltype(prog::Function::code)::const_iterator isnIt, end;
+		inline ExecutionState() = default;
 
 	public:
-		inline StackState(uint32_t stackPointer): stackPointer(stackPointer) {}
+		static inline ExecutionState enter(Vm& vm, uint32_t fnIdx, obj::Reference caller, std::vector<obj::Value> &args, size_t argCount);
+		inline obj::Reference getCallerFrame(Vm& vm);
 
-		inline obj::Value pop(obj::Storage& storage, obj::Reference frame);
-		inline void pushValue(obj::Storage& storage, obj::Reference frame, obj::Value value);
-		inline void pushReference(obj::Storage& storage, obj::Reference frame, obj::Value value);
+		inline bool fetch(prog::Instruction&);
+		inline void jump(Vm& vm, uint32_t offset);
 
-		inline void preGcFlush(obj::Storage& storage, obj::Reference frame);
-		inline void store(obj::Storage& storage, obj::Reference frame);
-		static inline StackState load(obj::Storage& storage, obj::Reference frame);
+		inline obj::Value pop(Vm& vm);
+		inline void push(Vm& vm, obj::Value value);
+
+		inline obj::Value readLocal(Vm& vm, uint32_t offset);
+		inline void writeLocal(Vm& vm, uint32_t offset, obj::Value value);
+
+		inline void suspend(Vm& vm);
+		static inline ExecutionState resume(Vm& vm, obj::Reference frame);
 	};
-
-	obj::Reference createFrame(const prog::Function &f, obj::Reference caller, std::vector<obj::Value> &args, size_t argCount);
 
 public:
 	Vm(obj::Storage& storage, const prog::Program &p);

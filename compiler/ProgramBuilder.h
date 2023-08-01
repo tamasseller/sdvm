@@ -14,27 +14,29 @@ namespace comp {
 
 class ProgramBuilder
 {
+	friend ClassBuilder;
 	friend FunctionBuilder;
 
 	std::vector<std::unique_ptr<ClassBuilder>> types;
 	std::vector<std::unique_ptr<FunctionBuilder>> functions;
 
+	Handle<ClassBuilder> globalBuilder;
+
+	uint32_t getFieldOffset(ClassBuilder::FieldHandle) const;
 public:
-	template<class Target>
-	class Handle
-	{
-		std::vector<std::unique_ptr<Target>> &target;
-		friend ProgramBuilder;
+	ProgramBuilder();
 
-		inline Handle(std::vector<std::unique_ptr<Target>> &target, const size_t idx): target(target), idx(idx) {}
+	using Function = Handle<FunctionBuilder>;
+	Function fun(std::optional<ValueType> ret, std::vector<ValueType> args);
 
-	public:
-		const size_t idx;
-		inline auto operator ->() const { return target[idx].get(); }
-	};
+	using Class = Handle<ClassBuilder>;
+	Class type(std::optional<Handle<ClassBuilder>> base = {}, bool isFrame = false);
 
-	Handle<FunctionBuilder> fun(std::optional<Type> ret, std::vector<Type> args);
-	Handle<ClassBuilder> type(std::optional<Handle<ClassBuilder>> base = {});
+	template<class... Args>
+	auto addGlobal(Args&&... args) {
+		return globalBuilder->addField(std::forward<Args>(args)...);
+	}
+
 	prog::Program operator()();
 };
 
