@@ -18,10 +18,9 @@ struct TypeInfo
 	size_t baseIdx;
 	size_t length;
 	std::vector<size_t> refOffs;
-	bool isFrame;
 
-	inline TypeInfo(size_t baseIdx, size_t length, std::vector<size_t> refOffs, bool isFrame = false):
-		baseIdx(baseIdx), length(length), refOffs(std::move(refOffs)), isFrame(isFrame) {}
+	inline TypeInfo(size_t baseIdx, size_t length, std::vector<size_t> refOffs):
+		baseIdx(baseIdx), length(length), refOffs(std::move(refOffs)) {}
 
 	size_t getLength(const prog::Program& program) const;
 

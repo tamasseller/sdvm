@@ -3,9 +3,6 @@ OUTPUT = test
 SOURCES += vm/Vm.cpp
 SOURCES += object/Storage.cpp
 SOURCES += object/TypeInfo.cpp
-SOURCES += compiler/CodeWriter.cpp
-SOURCES += compiler/ClassBuilder.cpp
-SOURCES += compiler/FunctionBuilder.cpp
 SOURCES += compiler/ProgramBuilder.cpp
 
 SOURCES += TestStorage.cpp

@@ -1,39 +1,132 @@
 #include "ProgramBuilder.h"
 
+#include <map>
+#include <algorithm>
+
 using namespace comp;
 
-ProgramBuilder::ProgramBuilder() {
-	globalBuilder = type();
-}
+ProgramBuilder::ProgramBuilder(): globals(Class::make()) {}
 
-ProgramBuilder::Function ProgramBuilder::fun(std::optional<ValueType> ret, std::vector<ValueType> args)
-{
-	auto idx = functions.size();
-	functions.push_back(std::make_unique<FunctionBuilder>(*this, ret, args));
-	return {functions, idx};
-}
-
-ProgramBuilder::Class ProgramBuilder::type(std::optional<Handle<ClassBuilder>> base, bool isFrame)
-{
-	auto idx = types.size();
-	types.push_back(std::make_unique<ClassBuilder>(idx, base.has_value() ? base->idx : std::optional<uint32_t>{}, isFrame));
-	return {types, idx};
-}
-
-prog::Program ProgramBuilder::operator()()
+prog::Program ProgramBuilder::compile(Function entry)
 {
 	prog::Program ret;
 
-	// Generate code and function meta-data
-	std::transform(functions.cbegin(), functions.cend(), std::back_inserter(ret.functions), [&ret](const auto& f){ return (*f)();});
+	std::vector<std::shared_ptr<FunctionDesc>> functions{entry.data};
 
-	// Generate runtime type info
-	std::transform(types.cbegin(), types.cend(), std::back_inserter(ret.types), [&ret](const auto& t){ return (*t)();});
+	// TODO iterate call tree and collect functions
+
+	std::vector<std::shared_ptr<ClassDesc>> classes{globals.data};
+
+	for(const auto &f: functions) {
+		classes.push_back(f->locals.data);
+	}
+
+	// TODO iterate call tree and collect classes
+
+	std::map<std::shared_ptr<ClassDesc>, size_t> classIdxTable;
+	std::transform(classes.begin(), classes.end(), std::inserter(classIdxTable, classIdxTable.end()), [idx{0u}](const std::shared_ptr<ClassDesc>& c) mutable {
+		return std::make_pair(c, idx++);
+	});
+
+	std::transform(classes.begin(), classes.end(), std::back_inserter(ret.types), [&classIdxTable](const std::shared_ptr<ClassDesc>& c){
+		return obj::TypeInfo {
+			.baseIdx = c->base ? classIdxTable[c->base] : 0,
+			.length = c->size(),
+			.refOffs = c->getRefOffs()
+		};
+	});
+
+	for(const auto& f: functions)
+	{
+		prog::Function fn;
+		fn.opStackSize = 0;
+		fn.frameTypeIndex = classIdxTable[f->locals.data],
+
+		std::for_each(f->code.begin(), f->code.end(), [&fn](const Line& line)
+		{
+			if(auto isn = line(); isn.has_value())
+			{
+				fn.code.push_back(isn.value());
+			}
+		});
+
+		ret.functions.push_back(fn);
+	}
 
 	return ret;
 }
 
-uint32_t ProgramBuilder::getFieldOffset(ClassBuilder::FieldHandle f) const
+/*
+struct CodeWriter
+{
+	int stackDepth = 0, maxStackDepth = 0;
+	bool hasCall = false;
+	std::vector<prog::Instruction> code;
+
+	void write(prog::Instruction isn);
+};*/
+
+/*
+prog::Function FunctionBuilder::operator()()
+{
+	CodeWriter cw;
+
+	for(const auto &c: code) {
+		c(cw);
+	}
+
+	const auto opstackSize = cw.maxStackDepth + (cw.hasCall ? prog::Frame::callerStackExtra : 0);
+	const auto opstackOffset = locals->size();
+
+	for(int i = 0; i < opstackSize; i++)
+	{
+		locals->addField(ValueType::native());
+	}
+
+	return prog::Function
+	{
+		.frame = prog::Frame {
+			.opStackOffset = opstackOffset,
+			.frameTypeIndex = locals.idx
+		},
+		.code = std::move(cw.code)
+	};
+}
+
+void FunctionBuilder::setLocal(const Class::FieldHandle &l, const RValue& b)
+{
+	// TODO check assignability
+
+	code.push_back([this, l, b](CodeWriter& cw){
+		b.manifest(cw);
+		cw.write(prog::Instruction::writeLocal(pb.getFieldOffset(l)));
+	});
+}
+
+RValue FunctionBuilder::create(Handle<Class> t)
+{
+	return RValue {
+		.type = ValueType::reference(t.idx),
+		.manifest = [t](CodeWriter& cw){
+			cw.write(prog::Instruction::newObject(t.idx));
+		}
+	};
+}
+*/
+
+/*
+void CodeWriter::write(prog::Instruction isn)
+{
+	hasCall = hasCall || isn.op == prog::Instruction::Operation::Call || isn.op == prog::Instruction::Operation::CallV;
+	stackDepth += isn.stackBalance();
+	assert(0 <= stackDepth);
+	maxStackDepth = std::max(maxStackDepth, stackDepth);
+	code.push_back(isn);
+}
+*/
+
+/*
+uint32_t ProgramBuilder::getFieldOffset(Class::FieldHandle f) const
 {
 	auto baseSize = 0u;
 	for(auto idx = f.typeIdx; types[f.typeIdx]->baseIdx; idx = *types[f.typeIdx]->baseIdx)
@@ -43,3 +136,4 @@ uint32_t ProgramBuilder::getFieldOffset(ClassBuilder::FieldHandle f) const
 
 	return baseSize + f.fieldIdx;
 }
+*/

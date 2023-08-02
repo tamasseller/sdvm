@@ -1,14 +1,16 @@
 #ifndef PROGRAM_FUNCTION_H_
 #define PROGRAM_FUNCTION_H_
 
-#include "Frame.h"
 #include "Instruction.h"
+
+#include <vector>
 
 namespace prog {
 
 struct Function
 {
-	Frame frame;
+	uint32_t frameTypeIndex;
+	size_t opStackSize;
 	std::vector<Instruction> code;
 };
 

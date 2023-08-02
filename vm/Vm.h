@@ -5,6 +5,8 @@
 #include "program/Program.h"
 #include "program/Function.h"
 
+#include <vector>
+
 namespace vm {
 
 class Vm

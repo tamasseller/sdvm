@@ -12,11 +12,12 @@ TEST(Vm, Sanity)
 {
 	comp::ProgramBuilder b;
 
-	auto f = b.fun(comp::ValueType::integer(), {comp::ValueType::integer(), comp::ValueType::integer()});
-	f->ret(f->addi(f->arg(0), f->arg(1)));
+	auto f = comp::Function::make(comp::ValueType::integer(), {comp::ValueType::integer(), comp::ValueType::integer()});
+	f << comp::Statement::ret(f[0] + f[1]);
 
-	CHECK(3 == vm::Vm(storage, b()).run({1, 2}).value().integer);
+	CHECK(3 == vm::Vm(storage, b.compile(f)).run({1, 2}).value().integer);
 }
+
 /*
 TEST(Vm, ClassBuilder)
 {

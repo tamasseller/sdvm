@@ -45,12 +45,12 @@ struct Instruction
 	};
 
 	enum class BinaryOpType {
-		AddI, MulI, SubI, DivI, Mod,
-		ShlI, ShrI, ShrU, AndI, OrI, XorI,
+		AddI, MulI, SubI, DivI,
 		EqI, NeI, LtI, GtI, LeI, GeI,
+		Mod, ShlI, ShrI, ShrU, AndI, OrI, XorI,
 		AddF, MulF, SubF, DivF,
 		EqF, NeF, LtF, GtF, LeF, GeF,
-		And, Or, Xor,
+		AndL, OrL
 	};
 
 	enum class UnaryOpType {

@@ -3,6 +3,8 @@
 
 #include <optional>
 
+#include "object/TypeInfo.h"
+
 #include "Function.h"
 
 namespace prog {

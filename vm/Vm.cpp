@@ -1,18 +1,23 @@
 #include "Vm.h"
 
+#include "object/Value.h"
+
 using namespace vm;
+
+static constexpr auto previousFrameOffset = 0;
+static constexpr auto topOfStackOffset = 1;
+static constexpr auto offsetToLocals = 2;
 
 inline Vm::ExecutionState Vm::ExecutionState::enter(Vm& vm, uint32_t fnIdx, obj::Reference caller, std::vector<obj::Value> &args, size_t argCount)
 {
 	assert(fnIdx < vm.program.functions.size());
 
 	const auto &fun = vm.program.functions[fnIdx];
-	const auto &frame = fun.frame;
 
-	assert(frame.frameTypeIndex < vm.program.types.size());
+	assert(fun.frameTypeIndex < vm.program.types.size());
 
 	Vm::ExecutionState ret;
-	ret.frame = vm.storage.create(vm.program, frame.frameTypeIndex),
+/*	ret.frame = vm.storage.create(vm.program, fun.frameTypeIndex),
 	ret.stackPointer = frame.opStackOffset,
 	ret.functionIndex = fnIdx,
 	ret.isnIt = fun.code.cbegin(),
@@ -26,13 +31,13 @@ inline Vm::ExecutionState Vm::ExecutionState::enter(Vm& vm, uint32_t fnIdx, obj:
 	{
 		vm.storage.write(vm.program, ret.frame, prog::Frame::offsetToLocals + i, args.back());
 		args.pop_back();
-	}
+	}*/
 
 	return ret;
 }
 
 inline obj::Reference Vm::ExecutionState::getCallerFrame(Vm& vm) {
-	return vm.storage.read(vm.program, frame, prog::Frame::previousFrameOffset).reference;
+//	return vm.storage.read(vm.program, frame, prog::Frame::previousFrameOffset).reference;
 }
 
 inline bool Vm::ExecutionState::fetch(prog::Instruction& isn)
@@ -64,11 +69,11 @@ inline void Vm::ExecutionState::push(Vm& vm, obj::Value value) {
 }
 
 inline obj::Value Vm::ExecutionState::readLocal(Vm& vm, uint32_t offset) {
-	return vm.storage.read(vm.program, frame, prog::Frame::offsetToLocals + offset);
+//	return vm.storage.read(vm.program, frame, prog::Frame::offsetToLocals + offset);
 }
 
 inline void Vm::ExecutionState::writeLocal(Vm& vm, uint32_t offset, obj::Value value) {
-	vm.storage.write(vm.program, frame, prog::Frame::offsetToLocals + offset, value);
+//	vm.storage.write(vm.program, frame, prog::Frame::offsetToLocals + offset, value);
 }
 
 inline void Vm::ExecutionState::suspend(Vm& vm)
@@ -76,7 +81,7 @@ inline void Vm::ExecutionState::suspend(Vm& vm)
 	push(vm, functionIndex);
 	const auto offset = isnIt - vm.program.functions[functionIndex].code.cbegin();
 	push(vm, (uint32_t)offset);
-	vm.storage.write(vm.program, frame, prog::Frame::topOfStackOffset, stackPointer);
+//	vm.storage.write(vm.program, frame, prog::Frame::topOfStackOffset, stackPointer);
 }
 
 inline Vm::ExecutionState Vm::ExecutionState::resume(Vm& vm, obj::Reference frame)
@@ -84,7 +89,7 @@ inline Vm::ExecutionState Vm::ExecutionState::resume(Vm& vm, obj::Reference fram
 	Vm::ExecutionState ret;
 	ret.frame = frame;
 
-	ret.stackPointer = vm.storage.read(vm.program, frame, prog::Frame::topOfStackOffset).integer;
+//	ret.stackPointer = vm.storage.read(vm.program, frame, prog::Frame::topOfStackOffset).integer;
 	const auto offset = ret.pop(vm).integer;
 
 	ret.functionIndex = ret.pop(vm).integer;
@@ -135,7 +140,6 @@ std::optional<obj::Value> Vm::run(std::vector<obj::Value> args)
 			break;
 		case prog::Instruction::Operation::ReadLocal:
 			in1out = ss.readLocal(*this, isn.arg.index);
-
 			break;
 		case prog::Instruction::Operation::ReadStatic:
 			in1out = storage.read(program, staticObject, isn.arg.index);
@@ -257,14 +261,11 @@ std::optional<obj::Value> Vm::run(std::vector<obj::Value> args)
 			case prog::Instruction::BinaryOpType::GeF:
 				in1out.logical = in1out.floating >= in2.floating;
 				break;
-			case prog::Instruction::BinaryOpType::And:
+			case prog::Instruction::BinaryOpType::AndL:
 				in1out.logical = in1out.logical && in2.logical;
 				break;
-			case prog::Instruction::BinaryOpType::Or:
+			case prog::Instruction::BinaryOpType::OrL:
 				in1out.logical = in1out.logical || in2.logical;
-				break;
-			case prog::Instruction::BinaryOpType::Xor:
-				in1out.logical = in1out.logical ^ in2.logical;
 				break;
 			}
 			break;
