@@ -9,8 +9,7 @@ namespace prog {
 
 struct Function
 {
-	uint32_t frameTypeIndex;
-	size_t opStackSize;
+	size_t nRefs, nScalars;
 	std::vector<Instruction> code;
 };
 

@@ -51,8 +51,8 @@ design choices
  - code in methods/functions/procedures with additional lookup tables for gc & exc
 
 3. execution model
- - stack based VM with type-erased (non-validatable) bytecode
-   - decoding&execution efficiency vs compactness
+ - bytecode structure
+   - decoding&execution efficiency vs compactness -> implementation strategy: interpret/semi-JIT/JIT/AOT
    - easy jumparound for local control flow (byte aligned code)
  - execution granularity
    - breakpoint at any bytcode isn

@@ -1,12 +1,12 @@
 OUTPUT = test
 
 SOURCES += vm/Vm.cpp
-SOURCES += object/Storage.cpp
-SOURCES += object/TypeInfo.cpp
-SOURCES += compiler/ProgramBuilder.cpp
+SOURCES += vm/Storage.cpp
 
-SOURCES += TestStorage.cpp
-SOURCES += TestVm.cpp
+#SOURCES += compiler/ProgramBuilder.cpp
+
+#SOURCES += TestStorage.cpp
+#SOURCES += TestVm.cpp
 
 SOURCES += main.cpp
 SOURCES += pet/1test/TestRunnerExperimental.cpp

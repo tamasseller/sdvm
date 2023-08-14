@@ -3,8 +3,7 @@
 
 #include <optional>
 
-#include "object/TypeInfo.h"
-
+#include "TypeInfo.h"
 #include "Function.h"
 
 namespace prog {
@@ -12,7 +11,7 @@ namespace prog {
 struct Program
 {
 	// First entry is the global object
-	std::vector<obj::TypeInfo> types;
+	std::vector<TypeInfo> types;
 
 	// First entry is the entry point
 	std::vector<Function> functions;

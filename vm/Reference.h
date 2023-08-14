@@ -3,11 +3,11 @@
 
 #include <cstdint>
 
-namespace obj {
+namespace vm {
 
 typedef uint32_t Reference;
 static constexpr Reference null = 0;
 
-} //namespace obj
+} //namespace vm
 
 #endif /* OBJECT_REFERENCE_H_ */
