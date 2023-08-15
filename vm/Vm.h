@@ -49,7 +49,7 @@ class Vm
 
 public:
 	Vm(Storage& storage, const prog::Program &p);
-	std::pair<std::vector<Value>, std::vector<Reference>> run(std::vector<Value> sargs, std::vector<Reference> rargs);
+	std::pair<std::vector<Reference>, std::vector<Value>> run(std::vector<Reference> rargs, std::vector<Value> sargs);
 };
 
 } //namespace vm

@@ -225,16 +225,23 @@ template<class C> inline void Vm::unary(ExecutionState& es, const prog::Instruct
 
 template<class C> inline void Vm::conditional(ExecutionState& es, const prog::Instruction& isn, C&& c)
 {
-	if(c(this->reads(es, isn.x), this->reads(es, isn.y))) {
+	const auto a = this->reads(es, isn.x);
+	const auto b = this->reads(es, isn.y);
+
+	if(c(a, b))
+	{
 		jump(es, isn.imm);
 	}
 }
 
-template<class C> inline void Vm::binary(ExecutionState& es, const prog::Instruction& isn, C&& c) {
-	this->writes(es, isn.x, c(this->reads(es, isn.y), this->reads(es, isn.z)));
+template<class C> inline void Vm::binary(ExecutionState& es, const prog::Instruction& isn, C&& c)
+{
+	const auto a = this->reads(es, isn.y);
+	const auto b = this->reads(es, isn.z);
+	this->writes(es, isn.x, c(a, b));
 }
 
-std::pair<std::vector<Value>, std::vector<Reference>> Vm::run(std::vector<Value> sargs, std::vector<Reference> rargs)
+std::pair<std::vector<Reference>, std::vector<Value>> Vm::run(std::vector<Reference> rargs, std::vector<Value> sargs)
 {
 	assert(!program.functions.empty());
 
@@ -391,26 +398,26 @@ std::pair<std::vector<Value>, std::vector<Reference>> Vm::run(std::vector<Value>
 		case prog::Instruction::Operation::call:
 			{
 				const auto calleeIdx = (uint32_t)reads(es, {}).integer;
-				const auto ss = takes(es, isn.imm);
-				const auto rs = taker(es, isn.imm2);
-				es = enter(calleeIdx, es.frame);
-				puts(es, ss);
+				const auto rs = taker(es, isn.imm);
+				const auto ss = takes(es, isn.imm2);
+				es = enter(calleeIdx, suspend(es));
 				putr(es, rs);
+				puts(es, ss);
 			}
 			// TODO
 			break;
 		case prog::Instruction::Operation::ret:
 			if(auto prevFrame = getCallerFrame(es); prevFrame != staticObject)
 			{
-				const auto ss = takes(es, isn.imm);
-				const auto rs = taker(es, isn.imm2);
+				const auto rs = taker(es, isn.imm);
+				const auto ss = takes(es, isn.imm2);
 				es = resume(prevFrame);
-				puts(es, ss);
 				putr(es, rs);
+				puts(es, ss);
 			}
 			else
 			{
-				return std::make_pair(takes(es, isn.imm), taker(es, isn.imm2));
+				return std::make_pair(taker(es, isn.imm), takes(es, isn.imm2));
 			}
 			break;
 		}

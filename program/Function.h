@@ -6,8 +6,8 @@
 #include <vector>
 
 namespace prog {
-
 struct Function
+
 {
 	size_t nRefs, nScalars;
 	std::vector<Instruction> code;
