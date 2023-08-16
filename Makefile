@@ -15,6 +15,7 @@ INCLUDE_DIRS += .
 
 CXXFLAGS += -std=c++17 -O0 -g3 -m32 -Wall
 CXXFLAGS += -fmax-errors=6
+CXXFLAGS += -fno-inline
 CXXFLAGS += --coverage
 
 LDFLAGS += -m32

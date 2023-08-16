@@ -32,8 +32,8 @@ inline Vm::ExecutionState Vm::enter(uint32_t fnIdx, Reference caller)
 
 	ret.frame = storage.create(prog::TypeInfo(
 		/* base idx */   0,
-		/* scalars */    Frame::Scalar::stackOffset + fun.nScalars + Frame::Scalar::extra,
-		/* references */ Frame::Reference::stackOffset + fun.nRefs
+		/* references */ Frame::Reference::stackOffset + fun.nRefs,
+		/* scalars */    Frame::Scalar::stackOffset + fun.nScalars + Frame::Scalar::extra
 	)),
 
 	ret.functionIndex = fnIdx,
@@ -48,9 +48,10 @@ inline Vm::ExecutionState Vm::enter(uint32_t fnIdx, Reference caller)
 inline Reference Vm::suspend(ExecutionState& es)
 {
 	const auto offset = es.isnIt - program.functions[es.functionIndex].code.cbegin();
-	writes(es, {}, (int)offset);
-	writes(es, {}, (int)es.functionIndex);
 
+	assert(es.scalarStackPointer < program.functions[es.functionIndex].nScalars);
+	storage.writes(es.frame, Frame::Scalar::stackOffset + es.scalarStackPointer + 0, (int)offset);
+	storage.writes(es.frame, Frame::Scalar::stackOffset + es.scalarStackPointer + 1, (int)es.functionIndex);
 	storage.writes(es.frame, Frame::Scalar::scalarTosIndexOffset, (int)es.scalarStackPointer);
 	storage.writes(es.frame, Frame::Scalar::referenceTosIndexOffset, (int)es.referenceStackPointer);
 
@@ -64,9 +65,10 @@ inline Vm::ExecutionState Vm::resume(Reference frame)
 	ret.frame = frame;
 	ret.scalarStackPointer = (uint32_t)storage.reads(frame, Frame::Scalar::scalarTosIndexOffset).integer;
 	ret.referenceStackPointer = (uint32_t)storage.reads(frame, Frame::Scalar::referenceTosIndexOffset).integer;
-	ret.functionIndex = (uint32_t)reads(ret, {}).integer;
+	const auto offset = storage.reads(ret.frame, Frame::Scalar::stackOffset + ret.scalarStackPointer + 0).integer;
+	ret.functionIndex = storage.reads(ret.frame, Frame::Scalar::stackOffset + ret.scalarStackPointer + 1).integer;
+
 	const auto& fun = program.functions[ret.functionIndex];
-	const auto offset = (uint32_t)reads(ret, {}).integer;
 	ret.isnIt = fun.code.cbegin() + offset;
 	ret.end = fun.code.cend();
 
@@ -101,7 +103,9 @@ inline Reference Vm::readr(ExecutionState& es, prog::Instruction::Reg reg)
 	if(reg.kind == prog::Instruction::Reg::Kind::Tos)
 	{
 		assert(0 < es.referenceStackPointer);
-		return storage.readr(es.frame, Frame::Reference::stackOffset + --es.referenceStackPointer);
+		const auto ret = storage.readr(es.frame, Frame::Reference::stackOffset + --es.referenceStackPointer);
+		storage.writer(es.frame, Frame::Reference::stackOffset + es.referenceStackPointer, null);
+		return ret;
 	}
 	else if(reg.kind == prog::Instruction::Reg::Kind::Local)
 	{
@@ -201,7 +205,7 @@ inline bool Vm::fetch(ExecutionState& es, prog::Instruction& isn)
 		return true;
 	}
 
-	return false;
+	return false; // GCOV_EXCL_LINE
 }
 
 inline void Vm::jump(ExecutionState& es, uint32_t offset)
@@ -260,6 +264,22 @@ std::pair<std::vector<Reference>, std::vector<Value>> Vm::run(std::vector<Refere
 		case prog::Instruction::Operation::lit:
 			this->writes(es, isn.x, (int)isn.imm);
 			break;
+		case prog::Instruction::Operation::make:
+			assert(isn.imm < program.types.size());
+			this->writer(es, isn.x, isn.imm ? storage.create(program.types[isn.imm]) : null);
+			break;
+		case prog::Instruction::Operation::jNul:
+			if(readr(es, isn.x) == null)
+			{
+				jump(es, isn.imm);
+			}
+			break;
+		case prog::Instruction::Operation::jNnl:
+			if(readr(es, isn.x) != null)
+			{
+				jump(es, isn.imm);
+			}
+			break;
 		case prog::Instruction::Operation::movr:
 			this->writer(es, isn.x, this->readr(es, isn.y));
 			break;
@@ -275,18 +295,18 @@ std::pair<std::vector<Reference>, std::vector<Value>> Vm::run(std::vector<Refere
 		case prog::Instruction::Operation::f2i:
 			unary(es, isn, [](const auto& v){ return (int)(v.floating); });
 			break;
-		case prog::Instruction::Operation::x1i:
-			unary(es, isn, [](const auto& v){ return (int)(int32_t)((int8_t)v.integer); });
-			break;
-		case prog::Instruction::Operation::x1u:
-			unary(es, isn, [](const auto& v){ return (int)(uint32_t)((uint8_t)v.integer); });
-			break;
-		case prog::Instruction::Operation::x2i:
-			unary(es, isn, [](const auto& v){ return (int)(int32_t)((int16_t)v.integer); });
-			break;
-		case prog::Instruction::Operation::x2u:
-			unary(es, isn, [](const auto& v){ return (int)(uint32_t)((uint16_t)v.integer); });
-			break;
+//		case prog::Instruction::Operation::x1i:
+//			unary(es, isn, [](const auto& v){ return (int)(int32_t)((int8_t)v.integer); });
+//			break;
+//		case prog::Instruction::Operation::x1u:
+//			unary(es, isn, [](const auto& v){ return (int)(uint32_t)((uint8_t)v.integer); });
+//			break;
+//		case prog::Instruction::Operation::x2i:
+//			unary(es, isn, [](const auto& v){ return (int)(int32_t)((int16_t)v.integer); });
+//			break;
+//		case prog::Instruction::Operation::x2u:
+//			unary(es, isn, [](const auto& v){ return (int)(uint32_t)((uint16_t)v.integer); });
+//			break;
 		case prog::Instruction::Operation::getr:
 			this->writer(es, isn.x, storage.readr(this->readr(es, isn.y), isn.imm));
 			break;
@@ -389,11 +409,9 @@ std::pair<std::vector<Reference>, std::vector<Value>> Vm::run(std::vector<Refere
 		case prog::Instruction::Operation::jump:
 			jump(es, isn.imm);
 			break;
-		case prog::Instruction::Operation::raise:
-			// TODO
-			break;
 		case prog::Instruction::Operation::drop:
-			// TODO
+			taker(es, isn.imm);
+			takes(es, isn.imm2);
 			break;
 		case prog::Instruction::Operation::call:
 			{

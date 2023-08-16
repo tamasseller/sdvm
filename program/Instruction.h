@@ -15,15 +15,18 @@ namespace prog {
 
 #define OPERATION_LIST() \
 	X(lit, FMT0) \
+	X(make, FMT0) \
+	X(jNul, FMT0) \
+	X(jNnl, FMT0) \
 	X(movr, FMT1) \
 	X(mov, FMT1) \
 	X(neg, FMT1) \
 	X(i2f, FMT1) \
 	X(f2i, FMT1) \
-	X(x1i, FMT1) \
-	X(x1u, FMT1) \
-	X(x2i, FMT1) \
-	X(x2u, FMT1) \
+	/*X(x1i, FMT1)*/ \
+	/*X(x1u, FMT1)*/ \
+	/*X(x2i, FMT1)*/ \
+	/*X(x2u, FMT1)*/ \
 	X(getr, FMT2) \
 	X(putr, FMT2) \
 	X(gets, FMT2) \
@@ -58,8 +61,7 @@ namespace prog {
 	X(subF, FMT3) \
 	X(divF, FMT3) \
 	X(jump, FMT4) \
-	X(raise, FMT4) \
-	X(drop, FMT4) \
+	X(drop, FMT5) \
 	X(call, FMT5) \
 	X(ret, FMT5)
 
@@ -76,6 +78,14 @@ struct Instruction
 
 		inline constexpr Reg(): kind(Kind::Tos), index(0) {}
 		inline constexpr Reg(uint16_t index): kind(Kind::Local), index(index) {}
+
+		static inline constexpr auto global(uint16_t index)
+		{
+			Reg ret;
+			ret.kind = Kind::Global;
+			ret.index = index;
+			return ret;
+		}
 	};
 
 	enum class Operation

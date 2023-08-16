@@ -18,6 +18,8 @@ static const std::pair<int, int> factorialTestVectors[] =
 	{9, 362880}
 };
 
+static const prog::TypeInfo listElement(0, 1, 1);
+
 TEST_GROUP(Vm)
 {
 	vm::Storage storage;
@@ -270,4 +272,155 @@ TEST(Vm, RecursiveFactorial)
 	{
 		CHECK(v.second == vm::Vm(storage, p).run({}, {v.first}).second.front().integer);
 	}
+}
+
+TEST(Vm, MakeList)
+{
+	prog::Program p = {
+		.types = {
+			prog::TypeInfo::empty,
+			listElement
+		},
+		.functions =
+		{
+			prog::Function
+			{
+				.nRefs = 3,
+				.nScalars = 2,
+				.code = {
+					/*  0 */ prog::Instruction::lit({}, 0),     // s0 -> i
+					/*  1 */ prog::Instruction::make({}, 0),    // r0 -> head
+					/*  2 */ prog::Instruction::movr({}, 0),    // r1 -> tail
+
+					/*  3 */ prog::Instruction::lit({}, 10),	// if(i == 10) return head;
+					/*  4 */ prog::Instruction::jNe(0, {}, 7),
+
+					/*  5 */ prog::Instruction::drop(1, 0),
+
+					/*  6 */ prog::Instruction::ret(1, 0),
+
+					/*  7 */ prog::Instruction::make({}, 1),    // r2 -> next
+					/*  8 */ prog::Instruction::puts(0, 2, 0),  // next->s0 = i;
+
+					/*  9 */ prog::Instruction::jNul(1, 12),    // if(tail != vm::null) {
+
+					/* 10 */ prog::Instruction::putr(2, 1, 0),  // tail->r0 = next;
+
+					/* 11 */ prog::Instruction::jump(13),       // } else {
+
+					/* 12 */ prog::Instruction::movr(0, 2),     // head = next; }
+
+					/* 13 */ prog::Instruction::movr(1, {}),     // tail = next;
+
+					/* 14 */ prog::Instruction::lit({}, 1),    // i++
+					/* 15 */ prog::Instruction::addI(0, 0, {}),
+
+					/* 16 */ prog::Instruction::jump(3),       // while(true);
+				}
+			}
+		}
+	};
+
+	auto h = vm::Vm(storage, p).run({}, {}).first.front();
+
+	for(int i = 0; i < 10 ; i++)
+	{
+		CHECK(h != vm::null);
+		CHECK(i == storage.reads(h, 0).integer);
+		h = storage.readr(h, 0);
+	}
+
+	CHECK(h == vm::null);
+}
+
+TEST(Vm, SumList)
+{
+	prog::Program p = {
+		.types = {
+			prog::TypeInfo::empty,
+			listElement
+		},
+		.functions =
+		{
+			prog::Function
+			{
+				.nRefs = 2,
+				.nScalars = 2,
+				.code = {
+					/* 0 */ prog::Instruction::lit({}, 0),     // s0 -> ret
+					/* 1 */ prog::Instruction::jNnl(0, 3),     // if(p == null /* arg:r0 */) {
+					/* 2 */ prog::Instruction::ret(0, 1),      //   return ret;
+
+					/* 3 */ prog::Instruction::gets({}, 0, 0), //   ret += p->s0;
+					/* 4 */ prog::Instruction::addI(0, 0, {}),
+
+					/* 5 */ prog::Instruction::getr(0, 0, 0), //    ret = p->r0;
+
+					/* 6 */ prog::Instruction::jump(1),       // while(true);
+				}
+			}
+		}
+	};
+
+	vm::Reference tail = vm::null, head = tail;
+	for(int i = 0; i < 10 ; i++)
+	{
+		auto next = storage.create(listElement);
+		storage.writes(next, 0, i);
+
+		if(tail != vm::null)
+		{
+			storage.writer(tail, 0, next);
+		}
+		else
+		{
+			head = next;
+		}
+
+		tail = next;
+	}
+
+	CHECK(45 == vm::Vm(storage, p).run({head}, {}).second.front().integer);
+}
+
+TEST(Vm, StaticAccess)
+{
+	prog::Program p = {
+		.types = {
+			prog::TypeInfo(0, 1, 1),
+			prog::TypeInfo(0, 0, 1)
+		},
+		.functions =
+		{
+			prog::Function
+			{
+				.nRefs = 1,
+				.nScalars = 1,
+				.code = {
+					prog::Instruction::mov(prog::Instruction::Reg::global(0), {}),
+					prog::Instruction::lit({}, 1),
+					prog::Instruction::call(0, 0),
+					prog::Instruction::movr({}, prog::Instruction::Reg::global(0)),
+					prog::Instruction::ret(1, 0),
+				}
+			},
+			prog::Function
+			{
+				.nRefs = 1,
+				.nScalars = 1,
+				.code = {
+					prog::Instruction::make({}, 1),
+					prog::Instruction::mov({}, prog::Instruction::Reg::global(0)),
+					prog::Instruction::puts({}, 0, 0),
+					prog::Instruction::movr(prog::Instruction::Reg::global(0), {}),
+					prog::Instruction::ret(0, 0),
+				}
+			}
+		}
+	};
+
+	auto r = vm::Vm(storage, p).run({}, {420}).first.front();
+
+	CHECK(r != vm::null);
+	CHECK(420 == storage.reads(r, 0).integer);
 }

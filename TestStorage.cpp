@@ -5,7 +5,7 @@
 
 TEST_GROUP(Storage)
 {
-	const prog::TypeInfo singleRef = prog::TypeInfo{0, 0, 1};
+	const prog::TypeInfo singleRef = prog::TypeInfo{0, 1, 0};
 	const prog::TypeInfo listElement = prog::TypeInfo{0, 1, 1};
 
 	vm::Storage uut;
