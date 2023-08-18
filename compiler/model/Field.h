@@ -10,10 +10,10 @@ class Class;
 class Field
 {
 	friend Class;
-	inline Field(std::shared_ptr<ClassDesc> type, uint32_t index): type(type), index(index) {}
+	inline Field(std::shared_ptr<Class> type, uint32_t index): type(type), index(index) {}
 
 public:
-	std::shared_ptr<ClassDesc> type;
+	std::shared_ptr<Class> type;
 	uint32_t index = -1u;
 
 	inline Field() = default;
@@ -24,6 +24,6 @@ public:
 	}
 };
 
-}//namespace comp
+} //namespace comp
 
 #endif /* COMPILER_FIELD_H_ */

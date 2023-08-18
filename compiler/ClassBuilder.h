@@ -2,8 +2,8 @@
 #define COMPILER_CLASS_H_
 
 #include "ValueType.h"
-#include "ClassDesc.h"
 #include "Field.h"
+#include "model/Class.h"
 
 namespace comp {
 
@@ -11,15 +11,15 @@ class Class
 {
 	friend class ProgramBuilder;
 
-	std::shared_ptr<ClassDesc> data;
+	std::shared_ptr<Class> data;
 
-	inline Class(std::shared_ptr<ClassDesc> data): data(data) {}
+	inline Class(std::shared_ptr<Class> data): data(data) {}
 
 public:
 	inline Class() = default;
 
 	static inline Class make(Class base = {}) {
-		return std::make_shared<ClassDesc>(base.data);
+		return std::make_shared<Class>(base.data);
 	}
 
 	inline Field addField(ValueType vt)

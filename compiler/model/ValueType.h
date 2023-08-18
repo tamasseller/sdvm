@@ -6,10 +6,10 @@
 
 namespace comp {
 
-class ClassDesc;
+class Class;
 
 enum TypeKind {
-	Value, Reference, Dynamic
+	Value, Reference
 };
 
 enum PrimitiveType {
@@ -20,15 +20,14 @@ struct ValueType
 {
 	TypeKind kind;
 	PrimitiveType primitiveType;
-	std::shared_ptr<ClassDesc> referenceType;
+	std::shared_ptr<Class> referenceType;
 
 	static inline auto primitive(PrimitiveType primitiveType) { return ValueType{ .kind = TypeKind::Value, .primitiveType = primitiveType}; }
 	static inline auto integer() { return primitive(PrimitiveType::Integer); }
 	static inline auto floating() { return primitive(PrimitiveType::Floating); }
 	static inline auto logical() { return primitive(PrimitiveType::Logical); }
 	static inline auto native() { return primitive(PrimitiveType::Native); }
-	static inline auto reference(std::shared_ptr<ClassDesc> referenceType) { return ValueType{ .kind = TypeKind::Reference, .referenceType = referenceType}; }
-	static inline auto dynamic() { return ValueType{ .kind = TypeKind::Dynamic}; }
+	static inline auto reference(std::shared_ptr<Class> referenceType) { return ValueType{ .kind = TypeKind::Reference, .referenceType = referenceType}; }
 };
 
 } //namespace comp

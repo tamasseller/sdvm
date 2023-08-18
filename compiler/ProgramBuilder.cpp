@@ -15,7 +15,7 @@ prog::Program ProgramBuilder::compile(Function entry)
 
 	// TODO iterate call tree and collect functions
 
-	std::vector<std::shared_ptr<ClassDesc>> classes{globals.data};
+	std::vector<std::shared_ptr<Class>> classes{globals.data};
 
 	for(const auto &f: functions) {
 		classes.push_back(f->locals.data);
@@ -23,12 +23,12 @@ prog::Program ProgramBuilder::compile(Function entry)
 
 	// TODO iterate call tree and collect classes
 
-	std::map<std::shared_ptr<ClassDesc>, size_t> classIdxTable;
-	std::transform(classes.begin(), classes.end(), std::inserter(classIdxTable, classIdxTable.end()), [idx{0u}](const std::shared_ptr<ClassDesc>& c) mutable {
+	std::map<std::shared_ptr<Class>, size_t> classIdxTable;
+	std::transform(classes.begin(), classes.end(), std::inserter(classIdxTable, classIdxTable.end()), [idx{0u}](const std::shared_ptr<Class>& c) mutable {
 		return std::make_pair(c, idx++);
 	});
 
-	std::transform(classes.begin(), classes.end(), std::back_inserter(ret.types), [&classIdxTable](const std::shared_ptr<ClassDesc>& c){
+	std::transform(classes.begin(), classes.end(), std::back_inserter(ret.types), [&classIdxTable](const std::shared_ptr<Class>& c){
 		return obj::TypeInfo {
 			.baseIdx = c->base ? classIdxTable[c->base] : 0,
 			.length = c->size(),

@@ -2,8 +2,6 @@
 
 #include "vm/Vm.h"
 
-#include <tuple>
-
 static const std::pair<int, int> factorialTestVectors[] =
 {
 	{0, 1},
