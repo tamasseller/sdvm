@@ -6,11 +6,12 @@
 
 namespace comp {
 
-struct Declaration: Statement
+struct Declaration: StatementBase<Declaration>
 {
 	const std::shared_ptr<Local> local;
 
 	inline Declaration(std::shared_ptr<Local> local): local(local) {}
+	inline virtual ~Declaration() = default;
 };
 
 }  // namespace comp

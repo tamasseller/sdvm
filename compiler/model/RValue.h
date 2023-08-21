@@ -3,16 +3,12 @@
 
 #include "ValueType.h"
 
-#include "assert.h"
-
-#include <functional>
-#include <vector>
-
 namespace comp {
 
 struct RValue
 {
 	virtual ValueType getType() = 0;
+
 	inline virtual ~RValue() = default;
 };
 

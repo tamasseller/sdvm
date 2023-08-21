@@ -7,7 +7,7 @@
 #include "model/Function.h"
 #include "model/Statement.h"
 
-#include "program/Function.h"
+#include "program/Program.h"
 
 #include <optional>
 
@@ -41,9 +41,25 @@ public:
 //	}
 
 	template<class C>
-	inline auto operator()(C&& stmt) {
+	inline auto operator<<=(C&& stmt) {
 		return stmt(currentBlock);
 	}
+
+	template<class... Args>
+	inline auto operator()(Args&&... args)
+	{
+		std::shared_ptr<RValue> as[] = {std::forward<Args>(args)...};
+		std::vector<std::shared_ptr<RValue>> a{as, as + sizeof(as)/sizeof(as[0])};
+
+		assert(a.size() == data->args.size()); // compile error, TODO check types
+
+		return [this, a](std::shared_ptr<StatementSink>& sink)
+		{
+			return sink->call(data, a);
+		};
+	}
+
+	prog::Program compile() const;
 };
 
 } //namespace comp

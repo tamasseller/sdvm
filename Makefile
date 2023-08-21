@@ -3,6 +3,7 @@ OUTPUT = test
 SOURCES += vm/Vm.cpp
 SOURCES += vm/Storage.cpp
 
+SOURCES += compiler/FunctionBuilder.cpp
 
 #SOURCES += TestVm.cpp
 #SOURCES += TestStorage.cpp

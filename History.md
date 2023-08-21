@@ -66,5 +66,10 @@ design choices
 implementation notes
 --------------------
 
+ - flow: source code -> compiler -> bytecode   ->   vm
+                        |                           ^
+                        \-> debug info -> debugger -/
  - multiple transformation steps with gradual desugaring -> information filtering, extraction and structuring
- 
+ - strategy: first build all layers with minimal functionality and test thoroughly, then add the more complicated features
+ - initially a simplified skeleton (no exceptions, no arrays, no virtual calls, no non-32bit types, no debug info)
+ - bottom-up then top-down iterations until they converge

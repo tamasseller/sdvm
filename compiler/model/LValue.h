@@ -5,10 +5,8 @@
 
 namespace comp {
 
-struct LValue: RValue
-{
-};
+struct LValue: RValue {};
 
-}  // namespace comp
+} //namespace comp
 
 #endif /* COMPILER_MODEL_LVALUE_H_ */

@@ -8,7 +8,7 @@
 
 namespace comp {
 
-struct Block: Statement
+struct Block
 {
 	std::vector<std::shared_ptr<Statement>> stmts;
 };

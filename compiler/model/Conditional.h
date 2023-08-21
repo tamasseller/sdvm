@@ -9,10 +9,10 @@
 
 namespace comp {
 
-struct Conditional: Statement
+struct Conditional
 {
 	std::shared_ptr<RValue> condition;
-	std::shared_ptr<Statement> then, otherwise;
+	Block then, otherwise;
 };
 
 }  // namespace comp

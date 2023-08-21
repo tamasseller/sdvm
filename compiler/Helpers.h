@@ -3,9 +3,10 @@
 
 #include "StatementSink.h"
 
-#include "model/ValueType.h"
 #include "model/Binary.h"
 #include "model/Literal.h"
+
+#include "assert.h"
 
 namespace comp {
 
@@ -97,7 +98,7 @@ struct LValWrapper: RValWrapper
 
 	inline auto operator =(const RValWrapper &o)
 	{
-		return [target{std::static_pointer_cast<LValue>(this->val)}, value{o.val}](std::shared_ptr<StatementSink>& sink)
+		return [target{std::static_pointer_cast<LValue>(val)}, value{o.val}](std::shared_ptr<StatementSink>& sink)
 		{
 			sink->set(target, value);
 		};
@@ -111,6 +112,15 @@ inline auto declaration(ValueType type)
 		return {sink->addLocal(type)};
 	};
 }
+
+inline auto ret()
+{
+	return [](std::shared_ptr<StatementSink>& sink)
+	{
+		return sink->ret();
+	};
+}
+
 
 } // namespace comp
 

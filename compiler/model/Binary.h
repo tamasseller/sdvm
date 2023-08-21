@@ -2,6 +2,7 @@
 #define COMPILER_MODEL_BINARY_H_
 
 #include "RValue.h"
+#include "ValueType.h"
 
 namespace comp {
 
@@ -31,7 +32,7 @@ struct Binary: RValue
 
 	Binary(Operation op, std::shared_ptr<RValue> first, std::shared_ptr<RValue> second): op(op), first(first), second(second) {}
 
-	virtual ValueType getType()
+	inline virtual ValueType getType() override
 	{
 		switch(op)
 		{

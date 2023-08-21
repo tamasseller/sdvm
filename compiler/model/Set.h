@@ -6,12 +6,13 @@
 
 namespace comp {
 
-struct Set: Statement
+struct Set: StatementBase<Set>
 {
 	std::shared_ptr<LValue> target;
 	std::shared_ptr<RValue> value;
 
 	inline Set(std::shared_ptr<LValue> target, std::shared_ptr<RValue> value): target(target), value(value) {}
+	inline virtual ~Set() = default;
 };
 
 }  // namespace comp
