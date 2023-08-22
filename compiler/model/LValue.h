@@ -7,6 +7,9 @@ namespace comp {
 
 struct LValue: RValue {};
 
+template<class Child>
+struct LValueBase: ValueBase<Child, LValue> {};
+
 } //namespace comp
 
 #endif /* COMPILER_MODEL_LVALUE_H_ */

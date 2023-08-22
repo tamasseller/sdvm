@@ -9,7 +9,7 @@
 
 namespace comp {
 
-struct Call: RValue, StatementBase<Call>
+struct Call: ValueBase<Call>
 {
 	std::shared_ptr<Function> fn;
 	std::vector<std::shared_ptr<RValue>> args;

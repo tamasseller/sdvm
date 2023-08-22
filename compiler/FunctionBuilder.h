@@ -4,6 +4,7 @@
 #include "Helpers.h"
 
 #include "model/Class.h"
+#include "model/Argument.h"
 #include "model/Function.h"
 #include "model/Statement.h"
 
@@ -29,34 +30,30 @@ public:
 		return std::make_shared<Function>(ret, args);
 	}
 
-//	inline RValue operator [](size_t n) const {
-//		assert(n < data->argFields.size());
-//
-//		return RValue(
-//			[this, n](std::vector<Line>& cw) {
-//				cw.push_back(Line::readLocal(data->argFields[n]));
-//			},
-//			data->argFields[n].getType()
-//		);
-//	}
+	inline LValWrapper operator [](size_t n) const
+	{
+		assert(n < data->args.size());
+		return {std::make_shared<Argument>(data->args[n], n)};
+	}
 
 	template<class C>
 	inline auto operator<<=(C&& stmt) {
 		return stmt(currentBlock);
 	}
 
+	inline auto operator<<=(const RValWrapper &rval) {
+		return rval(currentBlock);
+	}
+
 	template<class... Args>
-	inline auto operator()(Args&&... args)
+	inline RValWrapper operator()(Args&&... args)
 	{
-		std::shared_ptr<RValue> as[] = {std::forward<Args>(args)...};
+		std::shared_ptr<RValue> as[] = {args.val...};
 		std::vector<std::shared_ptr<RValue>> a{as, as + sizeof(as)/sizeof(as[0])};
 
 		assert(a.size() == data->args.size()); // compile error, TODO check types
 
-		return [this, a](std::shared_ptr<StatementSink>& sink)
-		{
-			return sink->call(data, a);
-		};
+		return {std::make_shared<Call>(data, a)};
 	}
 
 	prog::Program compile() const;

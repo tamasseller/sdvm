@@ -5,7 +5,7 @@
 
 namespace comp {
 
-struct Local: LValue
+struct Local: LValueBase<Local>
 {
 	const ValueType type;
 

@@ -1,25 +1,29 @@
 #ifndef COMPILER_CLASS_H_
 #define COMPILER_CLASS_H_
 
-#include "ValueType.h"
-#include "Field.h"
+#include "model/Field.h"
 #include "model/Class.h"
+#include "model/Create.h"
+#include "model/Global.h"
+#include "model/ValueType.h"
+
+#include "Helpers.h"
 
 namespace comp {
 
-class Class
+class ClassBuilder
 {
-	friend class ProgramBuilder;
+	friend class FunctionBuilder;
 
-	std::shared_ptr<Class> data;
-
-	inline Class(std::shared_ptr<Class> data): data(data) {}
+	inline ClassBuilder(std::shared_ptr<Class> data): data(data) {}
 
 public:
-	inline Class() = default;
+	const std::shared_ptr<Class> data;
 
-	static inline Class make(Class base = {}) {
-		return std::make_shared<Class>(base.data);
+	inline ClassBuilder() = default;
+
+	static inline ClassBuilder make(ClassBuilder base = {}) {
+		return {std::make_shared<Class>(base.data)};
 	}
 
 	inline Field addField(ValueType vt)
@@ -29,8 +33,28 @@ public:
 		return {data, idx};
 	}
 
-	inline auto addField(Class c) {
+	inline auto addField(const ClassBuilder& c) {
 		return addField(ValueType::reference(c.data));
+	}
+
+	inline StaticField addStaticField(ValueType vt)
+	{
+		const auto idx = data->staticTypes.size();
+		data->staticTypes.push_back(vt);
+		return {data, idx};
+	}
+
+	inline auto addStaticField(const ClassBuilder& c) {
+		return addStaticField(ValueType::reference(c.data));
+	}
+
+	inline RValWrapper operator()() {
+		return {std::make_shared<Create>(data)};
+	}
+
+	inline LValWrapper operator[](const StaticField& sf) const {
+		assert(sf.type == data);
+		return {std::make_shared<Global>(sf)};
 	}
 };
 

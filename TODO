@@ -1,4 +1,4 @@
-gather info during compilation and emit opstack ref/val table
+gather info during compilation
 
 more primitive types (char+short and unsigned?)
 instanceof

@@ -4,15 +4,12 @@
 #include "RValue.h"
 #include "Statement.h"
 
-#include <memory>
-#include <vector>
-
 namespace comp {
 
-struct Conditional
+struct Conditional: StatementBase<Conditional>
 {
 	std::shared_ptr<RValue> condition;
-	Block then, otherwise;
+	std::shared_ptr<Statement> then, otherwise;
 };
 
 }  // namespace comp

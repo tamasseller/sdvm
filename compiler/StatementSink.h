@@ -8,6 +8,7 @@
 #include "model/Return.h"
 #include "model/Function.h"
 #include "model/Declaration.h"
+#include "model/ExpressionStatement.h"
 
 namespace comp {
 
@@ -15,10 +16,10 @@ struct StatementSink
 {
 	const std::shared_ptr<Block> block;
 
-	inline std::shared_ptr<Local> addLocal(ValueType type)
+	inline std::shared_ptr<Local> addLocal(ValueType type, std::shared_ptr<RValue> initializer)
 	{
 		auto ret = std::make_shared<Local>(type);
-		block->stmts.push_back(std::make_shared<Declaration>(ret));
+		block->stmts.push_back(std::make_shared<Declaration>(ret, initializer));
 		return ret;
 	}
 
@@ -32,9 +33,14 @@ struct StatementSink
 		block->stmts.push_back(std::make_shared<Return>());
 	}
 
-	inline void call(std::shared_ptr<Function> fn, std::vector<std::shared_ptr<RValue>> args)
+	inline void ret(std::vector<std::shared_ptr<RValue>> value)
 	{
-		block->stmts.push_back(std::make_shared<Call>(fn, args));
+		block->stmts.push_back(std::make_shared<Return>(value));
+	}
+
+	inline void exprStmt(std::shared_ptr<RValue> value)
+	{
+		block->stmts.push_back(std::make_shared<ExpressionStatement>(value));
 	}
 
 	inline StatementSink(std::shared_ptr<Block> block): block(block) {}

@@ -4,9 +4,11 @@
 #include <utility>
 
 #define _STATEMENT_TYPES() \
+	X(ExpressionStatement) \
+	X(Conditional) \
 	X(Declaration) \
 	X(Return) \
-	X(Call) \
+	X(Block) \
 	X(Set) \
 
 namespace comp {

@@ -5,7 +5,7 @@
 
 namespace comp {
 
-struct Literal: RValue
+struct Literal: ValueBase<Literal>
 {
 	const ValueType type;
 

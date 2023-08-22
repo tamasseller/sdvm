@@ -6,7 +6,7 @@
 
 namespace comp {
 
-struct Binary: RValue
+struct Binary: ValueBase<Binary>
 {
 	enum class Operation
 	{
@@ -24,7 +24,23 @@ struct Binary: RValue
 		AddF,
 		MulF,
 		SubF,
-		DivF
+		DivF,
+		Eq,
+		Ne,
+		LtI,
+		GtI,
+		LeI,
+		GeI,
+		LtU,
+		GtU,
+		LeU,
+		GeU,
+		LtF,
+		GtF,
+		LeF,
+		GeF,
+		And,
+		Or
 	};
 
 	const Operation op;
@@ -53,6 +69,23 @@ struct Binary: RValue
 			case Operation::SubF:
 			case Operation::DivF:
 				return ValueType::floating();
+			case Operation::Eq:
+			case Operation::Ne:
+			case Operation::LtI:
+			case Operation::GtI:
+			case Operation::LeI:
+			case Operation::GeI:
+			case Operation::LtU:
+			case Operation::GtU:
+			case Operation::LeU:
+			case Operation::GeU:
+			case Operation::LtF:
+			case Operation::GtF:
+			case Operation::LeF:
+			case Operation::GeF:
+			case Operation::And:
+			case Operation::Or:
+				return ValueType::logical();
 		}
 
 		return ValueType::native();
