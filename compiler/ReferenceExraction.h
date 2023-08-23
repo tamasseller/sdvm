@@ -6,10 +6,9 @@
 #include "builder/ClassBuilder.h"
 
 #include "model/Class.h"
-#include "model/Block.h"
 #include "model/Function.h"
-#include "model/Statement.h"
-#include "model/Conditional.h"
+#include "model/StatementTypes.h"
+#include "model/ExpressionNodes.h"
 
 #include <set>
 #include <map>

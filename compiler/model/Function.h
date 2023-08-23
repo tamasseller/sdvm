@@ -2,7 +2,7 @@
 #define COMPILER_FUNCTIONDESC_H_
 
 #include "ValueType.h"
-#include "Block.h"
+#include "Statement.h"
 
 #include <optional>
 #include <algorithm>

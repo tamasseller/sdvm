@@ -1,7 +1,11 @@
-#ifndef COMPILER_MODEL_VALUEVISITOR_H_
-#define COMPILER_MODEL_VALUEVISITOR_H_
+#ifndef COMPILER_MODEL_EXPRESSION_H_
+#define COMPILER_MODEL_EXPRESSION_H_
 
-#include <utility>
+#include "ValueType.h"
+
+#include "assert.h"
+
+namespace comp {
 
 #define _VALUE_TYPES() \
 	X(Call) \
@@ -14,8 +18,6 @@
 	X(Ternary) \
 	X(Argument) \
 	X(Dereference)
-
-namespace comp {
 
 #define X(n) class n;
 _VALUE_TYPES()
@@ -43,7 +45,23 @@ struct LambdaValueVisitor: ValueVisitor
 #undef X
 };
 
+struct RValue
+{
+	virtual ValueType getType() = 0;
+
+	virtual void accept(const ValueVisitor& v) const = 0;
+
+	template<class C>
+	inline void accept(C&& c) const {
+		const LambdaValueVisitor<C> v(std::forward<C>(c));
+		this->accept((const ValueVisitor&)v);
+	}
+
+	inline virtual ~RValue() = default;
+};
+
+struct LValue: RValue {};
+
 }  // namespace comp
 
-
-#endif /* COMPILER_MODEL_VALUEVISITOR_H_ */
+#endif /* COMPILER_MODEL_EXPRESSION_H_ */

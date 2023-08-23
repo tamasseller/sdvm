@@ -3,14 +3,7 @@
 
 #include "StatementSink.h"
 
-#include "compiler/model/Set.h"
-#include "compiler/model/Field.h"
-#include "compiler/model/Unary.h"
-#include "compiler/model/Binary.h"
-#include "compiler/model/Literal.h"
-#include "compiler/model/Declaration.h"
-#include "compiler/model/Dereference.h"
-#include "compiler/model/ExpressionStatement.h"
+#include "compiler/model/ExpressionNodes.h"
 
 #include "assert.h"
 

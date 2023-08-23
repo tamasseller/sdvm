@@ -3,11 +3,10 @@
 
 #include "Helpers.h"
 
-#include "compiler/model/Call.h"
 #include "compiler/model/Class.h"
-#include "compiler/model/Argument.h"
 #include "compiler/model/Function.h"
-#include "compiler/model/Statement.h"
+#include "compiler/model/StatementTypes.h"
+#include "compiler/model/ExpressionNodes.h"
 
 #include "compiler/Compile.h"
 

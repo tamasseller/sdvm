@@ -1,11 +1,10 @@
 #ifndef COMPILER_CLASS_H_
 #define COMPILER_CLASS_H_
 
-#include "compiler/model/Field.h"
 #include "compiler/model/Class.h"
-#include "compiler/model/Create.h"
-#include "compiler/model/Global.h"
+#include "compiler/model/Field.h"
 #include "compiler/model/ValueType.h"
+#include "compiler/model/ExpressionNodes.h"
 
 #include "Helpers.h"
 

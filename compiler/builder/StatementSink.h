@@ -1,9 +1,7 @@
 #ifndef COMPILER_STATEMENTSINK_H_
 #define COMPILER_STATEMENTSINK_H_
 
-#include "compiler/model/Loop.h"
-#include "compiler/model/Block.h"
-#include "compiler/model/Conditional.h"
+#include "compiler/model/StatementTypes.h"
 
 namespace comp {
 

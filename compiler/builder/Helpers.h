@@ -5,18 +5,9 @@
 
 #include "StatementSink.h"
 
-#include "compiler/model/Break.h"
-#include "compiler/model/Loop.h"
 #include "compiler/model/Field.h"
-#include "compiler/model/Unary.h"
-#include "compiler/model/Binary.h"
-#include "compiler/model/Create.h"
-#include "compiler/model/Return.h"
-#include "compiler/model/Ternary.h"
-#include "compiler/model/Literal.h"
-#include "compiler/model/Continue.h"
-#include "compiler/model/Dereference.h"
-#include "compiler/model/ExpressionStatement.h"
+#include "compiler/model/ExpressionNodes.h"
+#include "compiler/model/StatementTypes.h"
 
 #include "assert.h"
 
@@ -95,7 +86,7 @@ static inline auto findLoop(std::shared_ptr<StatementSink> current)
 		current = current->parent;
 	}
 
-	assert(lsink != nullptr);
+	assert(lsink != nullptr); // TODO compile error (break/continue outside loop)
 	return lsink->loop;
 }
 
