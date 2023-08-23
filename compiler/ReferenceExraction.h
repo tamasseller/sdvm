@@ -3,7 +3,7 @@
 
 #include "Overloaded.h"
 
-#include "ClassBuilder.h"
+#include "builder/ClassBuilder.h"
 
 #include "model/Class.h"
 #include "model/Block.h"

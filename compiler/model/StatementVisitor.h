@@ -7,8 +7,11 @@
 	X(ExpressionStatement) \
 	X(Conditional) \
 	X(Declaration) \
+	X(Continue) \
 	X(Return) \
 	X(Block) \
+	X(Break) \
+	X(Loop) \
 	X(Set) \
 
 namespace comp {

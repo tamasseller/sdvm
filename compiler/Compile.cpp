@@ -1,4 +1,4 @@
-#include "FunctionBuilder.h"
+#include "builder/FunctionBuilder.h"
 
 #include "ReferenceExraction.h"
 
@@ -25,7 +25,7 @@ static inline std::string typeName(ValueType vt, const std::map<std::shared_ptr<
 	}
 }
 
-prog::Program FunctionBuilder::compile() const
+prog::Program comp::compile(std::shared_ptr<Function> data)
 {
 	prog::Program ret;
 

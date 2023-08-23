@@ -15,6 +15,6 @@
 // call(fn, rval...): rval...
 // ret(rval) -> {}
 // expr(rval)
-conditional(rval)
-loop(rval)
+// conditional(rval)
+// loop(rval)
 

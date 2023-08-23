@@ -3,10 +3,13 @@
 
 #include "Helpers.h"
 
-#include "model/Class.h"
-#include "model/Argument.h"
-#include "model/Function.h"
-#include "model/Statement.h"
+#include "compiler/model/Call.h"
+#include "compiler/model/Class.h"
+#include "compiler/model/Argument.h"
+#include "compiler/model/Function.h"
+#include "compiler/model/Statement.h"
+
+#include "compiler/Compile.h"
 
 #include "program/Program.h"
 
@@ -23,7 +26,7 @@ class FunctionBuilder
 	std::shared_ptr<Function> data;
 	std::shared_ptr<StatementSink> currentBlock;
 
-	inline FunctionBuilder(std::shared_ptr<Function> data): data(data), currentBlock(std::make_shared<StatementSink>(data->body)) {}
+	inline FunctionBuilder(std::shared_ptr<Function> data): data(data), currentBlock(std::make_shared<BlockSink>(data->body)) {}
 
 public:
 	static inline FunctionBuilder make(std::vector<ValueType> ret, std::vector<ValueType> args) {
@@ -56,7 +59,9 @@ public:
 		return {std::make_shared<Call>(data, a)};
 	}
 
-	prog::Program compile() const;
+	prog::Program compile() const {
+		return comp::compile(data);
+	}
 };
 
 } //namespace comp

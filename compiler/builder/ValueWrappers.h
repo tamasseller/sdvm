@@ -1,16 +1,16 @@
-#ifndef COMPILER_HELPERS_H_
-#define COMPILER_HELPERS_H_
+#ifndef COMPILER_BUILDER_RVALWRAPPER_H_
+#define COMPILER_BUILDER_RVALWRAPPER_H_
 
 #include "StatementSink.h"
 
-#include "model/Field.h"
-#include "model/Unary.h"
-#include "model/Binary.h"
-#include "model/Create.h"
-#include "model/Ternary.h"
-#include "model/Literal.h"
-#include "model/Dereference.h"
-#include "model/ExpressionStatement.h"
+#include "compiler/model/Set.h"
+#include "compiler/model/Field.h"
+#include "compiler/model/Unary.h"
+#include "compiler/model/Binary.h"
+#include "compiler/model/Literal.h"
+#include "compiler/model/Declaration.h"
+#include "compiler/model/Dereference.h"
+#include "compiler/model/ExpressionStatement.h"
 
 #include "assert.h"
 
@@ -27,7 +27,7 @@ struct RValWrapper
 	inline RValWrapper(float floating): val(std::make_shared<Literal>(floating)) {}
 
 	inline void operator ()(std::shared_ptr<StatementSink> sink) const {
-		sink->exprStmt(val);
+		sink->add(std::make_shared<ExpressionStatement>(val));
 	}
 
 	inline struct LValWrapper operator [](const Field& f) const;
@@ -175,7 +175,7 @@ struct RValWrapper
 	{
 		const auto t = val->getType();
 		assert(t.kind == TypeKind::Value);
-		assert(t.primitiveType == PrimitiveType::Integer);
+		assert(t.primitiveType == PrimitiveType::Logical);
 		return {std::make_shared<Unary>(Unary::Operation::Not, val)};
 	}
 
@@ -218,7 +218,7 @@ struct LValWrapper: RValWrapper
 	{
 		return [target{std::static_pointer_cast<LValue>(val)}, value{o.val}](std::shared_ptr<StatementSink>& sink)
 		{
-			sink->set(target, value);
+			sink->add(std::make_shared<Set>(target, value));
 		};
 	}
 
@@ -232,71 +232,6 @@ inline LValWrapper RValWrapper::operator [](const Field& f) const {
 	return {std::make_shared<Dereference>(val, f)};
 }
 
-inline auto declaration(ValueType type, const RValWrapper& initializer)
-{
-	return [type, initializer](std::shared_ptr<StatementSink>& sink) -> LValWrapper
-	{
-		return {sink->addLocal(type, initializer.val)};
-	};
-}
-
-inline auto declaration(const RValWrapper& initializer) {
-	return declaration(initializer.val->getType(), initializer);
-}
-
-inline auto ret()
-{
-	return [](std::shared_ptr<StatementSink>& sink)
-	{
-		return sink->ret();
-	};
-}
-
-inline auto ret(const RValWrapper& val)
-{
-	return [val{val.val}](std::shared_ptr<StatementSink>& sink)
-	{
-		std::vector<std::shared_ptr<RValue>> a;
-		a.push_back(val);
-		return sink->ret(a);
-	};
-}
-
-inline RValWrapper null(std::make_shared<Create>(nullptr));
-
-inline RValWrapper ternary(const RValWrapper& condition, const RValWrapper& then, const RValWrapper& otherwise) {
-	return {std::make_shared<Ternary>(condition.val, then.val, otherwise.val)};
-}
-
-inline auto conditional(const RValWrapper& condition)
-{
-	return [condition{condition.val}](std::shared_ptr<StatementSink>& sink)
-	{
-		// TODO cond = new Conditional(condition)
-		// TODO sink->add(cond)
-		// TODO sink = new ForkSink(cond, sink)
-	};
-}
-
-inline auto otherwise()
-{
-	return [](std::shared_ptr<StatementSink>& sink)
-	{
-		// TODO forkSink = std::dynamic_cast<ForkSink>(sink)
-		// TODO sink->block = forkSink->cond.otherwise;
-	};
-}
-
-inline auto endif()
-{
-	return [](std::shared_ptr<StatementSink>& sink)
-	{
-		// TODO forkSink = std::dynamic_cast<ForkSink>(sink)
-		// TODO sink = forkSink->parent;
-	};
-}
-
-
 } // namespace comp
 
-#endif /* COMPILER_HELPERS_H_ */
+#endif /* COMPILER_BUILDER_RVALWRAPPER_H_ */

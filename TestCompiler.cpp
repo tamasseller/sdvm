@@ -1,8 +1,8 @@
 #include "1test/Test.h"
 
-#include "compiler/FunctionBuilder.h"
-#include "compiler/ClassBuilder.h"
-#include "compiler/Helpers.h"
+#include "compiler/builder/FunctionBuilder.h"
+#include "compiler/builder/ClassBuilder.h"
+#include "compiler/builder/Helpers.h"
 
 TEST_GROUP(Compiler) {};
 
@@ -70,10 +70,30 @@ TEST(Compiler, Conditional)
 	auto f = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
 
 	f <<= comp::conditional(f[0] > 2);
-	f <<= comp::ret(f(f[0] - 1) * f[0]);
+	f <<= 	comp::ret(f(f[0] - 1) * f[0]);
 	f <<= comp::otherwise();
-	f <<= comp::ret(1);
-	f <<= comp::endif();
+	f <<= 	comp::ret(1);
+	f <<= comp::endBlock();
+
+	auto p = f.compile();
+
+//	CHECK(p.functions.size() == 2);
+}
+
+TEST(Compiler, Loop)
+{
+	auto f = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
+
+	auto ret = f <<= comp::declaration(0);
+	f <<= comp::loop();
+	f <<= 	comp::conditional(!(f[0] > 2));
+	f <<= 		comp::exitLoop();
+	f <<= 	comp::endBlock();
+
+	f <<= 	ret = ret * f[0];
+	f <<= 	f[0] = f[0] - 1;
+	f <<= comp::endBlock();
+	f <<= comp::ret(ret);
 
 	auto p = f.compile();
 

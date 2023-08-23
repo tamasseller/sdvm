@@ -8,8 +8,11 @@ namespace comp {
 
 struct Conditional: StatementBase<Conditional>
 {
-	std::shared_ptr<RValue> condition;
-	std::shared_ptr<Statement> then, otherwise;
+	const std::shared_ptr<RValue> condition;
+	const std::shared_ptr<Block> then = std::make_shared<Block>();
+	const std::shared_ptr<Block> otherwise = std::make_shared<Block>();
+
+	inline Conditional(std::shared_ptr<RValue> condition): condition(condition) {}
 };
 
 }  // namespace comp
