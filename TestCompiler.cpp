@@ -84,7 +84,7 @@ TEST(Compiler, Loop)
 {
 	auto f = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
 
-	auto ret = f <<= comp::declaration(0);
+	auto ret = f <<= comp::declaration(1);
 	f <<= comp::loop();
 	f <<= 	comp::conditional(!(f[0] > 2));
 	f <<= 		comp::exitLoop();
