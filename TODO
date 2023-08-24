@@ -1,0 +1,13 @@
+gather info during compilation
+
+more primitive types (char+short and unsigned?)
+instanceof
+virtual calls
+arrays
+array based string like class for sanity check
+exceptions
+coroutine yielding
+debugger API
+native calls
+buffer access
+buffer based string like class for sanity check

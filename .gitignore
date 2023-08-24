@@ -1,6 +1,6 @@
-sdvm-test
+test
 .cproject
 .project
-.settings
-.o
+.settings/
 coverage/
+.o

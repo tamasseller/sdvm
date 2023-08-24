@@ -1,0 +1,20 @@
+// local(type): rval, lval
+// argument(type): rval, lval
+// deref(rval /*obj*/, field): rval, lval
+// global(type): rval, lval
+
+// literal(immediate): rval
+// binary(rval, rval): rval
+// createObject(class): rval
+// unary(rval): rval
+// ternary(rval /*cond*/, rval /*then*/, rval /*otherwise*/): rval
+
+// declaration(rval) -> local
+// set(lval, rval)
+// ret() -> {}
+// call(fn, rval...): rval...
+// ret(rval) -> {}
+// expr(rval)
+// conditional(rval)
+// loop(rval)
+
