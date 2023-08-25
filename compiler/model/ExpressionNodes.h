@@ -61,6 +61,17 @@ struct Dereference: LValueBase<Dereference>
 	inline virtual ValueType getType() override { return field.getType(); }
 };
 
+struct Set: ValueBase<Set>
+{
+	std::shared_ptr<LValue> target;
+	std::shared_ptr<RValue> value;
+
+	inline Set(std::shared_ptr<LValue> target, std::shared_ptr<RValue> value): target(target), value(value) {}
+	inline virtual ~Set() = default;
+
+	inline virtual ValueType getType() override { return value->getType(); }
+};
+
 struct Literal: ValueBase<Literal>
 {
 	const ValueType type;

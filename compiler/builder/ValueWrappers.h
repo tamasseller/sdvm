@@ -207,16 +207,11 @@ struct LValWrapper: RValWrapper
 {
 	inline LValWrapper(std::shared_ptr<LValue> value): RValWrapper(value) {}
 
-	inline auto operator =(const RValWrapper &o) const
-	{
-		return [target{std::static_pointer_cast<LValue>(val)}, value{o.val}](std::shared_ptr<StatementSink>& sink)
-		{
-			sink->add(std::make_shared<Set>(target, value));
-		};
+	inline RValWrapper operator =(const RValWrapper &o) const {
+		return {std::make_shared<Set>(std::static_pointer_cast<LValue>(val), o.val)};
 	}
 
-	inline auto operator =(const LValWrapper &o) const
-	{
+	inline auto operator =(const LValWrapper &o) const {
 		return *this = (const RValWrapper&)o;
 	}
 };

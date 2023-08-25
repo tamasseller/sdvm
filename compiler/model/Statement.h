@@ -15,7 +15,6 @@ namespace comp {
 	X(Block) \
 	X(Break) \
 	X(Loop) \
-	X(Set) \
 
 #define X(n) class n;
 _STATEMENT_TYPES()

@@ -59,7 +59,7 @@ TEST(Compiler, ObjectUsage)
 TEST(Compiler, Ternary)
 {
 	auto f = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
-	f <<= comp::ret(comp::ternary(f[0] > 2, f(f[0] - 1) * f[0], 1));
+	f <<= comp::ret(comp::ternary(f[0] >= 2, f(f[0] - 1) * f[0], 1));
 	auto p = f.compile();
 
 //	CHECK(p.functions.size() == 2);

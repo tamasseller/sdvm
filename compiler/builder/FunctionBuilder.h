@@ -8,7 +8,7 @@
 #include "compiler/model/StatementTypes.h"
 #include "compiler/model/ExpressionNodes.h"
 
-#include "compiler/Compile.h"
+#include "compiler/internal/Compile.h"
 
 #include "program/Program.h"
 

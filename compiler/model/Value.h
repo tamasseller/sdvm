@@ -8,6 +8,7 @@
 namespace comp {
 
 #define _VALUE_TYPES() \
+	X(Set) \
 	X(Call) \
 	X(Local) \
 	X(Unary) \

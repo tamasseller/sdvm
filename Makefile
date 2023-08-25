@@ -3,7 +3,9 @@ OUTPUT = test
 SOURCES += vm/Vm.cpp
 SOURCES += vm/Storage.cpp
 
-SOURCES += compiler/Compile.cpp
+SOURCES += compiler/internal/Compile.cpp
+SOURCES += compiler/internal/AstDump.cpp
+SOURCES += compiler/internal/GlobalIdentifiers.cpp
 
 #SOURCES += TestVm.cpp
 #SOURCES += TestStorage.cpp

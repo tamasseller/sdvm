@@ -1,19 +1,14 @@
-#ifndef COMPILER_REFERENCEEXRACTION_H_
-#define COMPILER_REFERENCEEXRACTION_H_
+#include "GlobalIdentifiers.h"
+
+#include "compiler/builder/ClassBuilder.h"
+#include "compiler/model/StatementTypes.h"
+#include "compiler/model/ExpressionNodes.h"
 
 #include "Overloaded.h"
 
-#include "builder/ClassBuilder.h"
-
-#include "model/Class.h"
-#include "model/Function.h"
-#include "model/StatementTypes.h"
-#include "model/ExpressionNodes.h"
-
 #include <set>
-#include <map>
 
-namespace comp {
+using namespace comp;
 
 struct ElementReferences
 {
@@ -40,7 +35,12 @@ static inline void walkBlockTree(const Statement& stmt, C&& c)
 		{
 			c(v);
 			walkBlockTree(*v.then, c);
-			if(v.otherwise) walkBlockTree(*v.otherwise, c);
+			walkBlockTree(*v.otherwise, c);
+		},
+		[&c](const Loop& v)
+		{
+			c(v);
+			walkBlockTree(*v.body, c);
 		},
 		[&c](const auto& o){ c(o); },
 	});
@@ -75,6 +75,11 @@ static inline void walkExpressionTree(const RValue& val, C&& c)
 			c(v);
 			walkExpressionTree(*v.object, c);
 		},
+		[&c](const Set& v)
+		{
+			walkExpressionTree(*v.target, c);
+			walkExpressionTree(*v.value, c);
+		},
 		[&c](const Local& v){},
 		[&c](const Argument& v){},
 		[&c](const Literal& v){},
@@ -103,11 +108,6 @@ static inline ElementReferences extractReferences(std::shared_ptr<Function> fn)
 		[&ret](const Return& v)
 		{
 			std::for_each(v.value.begin(), v.value.end(), [&ret](const auto &w){walkExpressionTree(*w, ret); });
-		},
-		[&ret](const Set& v)
-		{
-			walkExpressionTree(*v.target, ret);
-			walkExpressionTree(*v.value, ret);
 		},
 		[](const auto& o) {}
 	});
@@ -182,6 +182,16 @@ static inline std::shared_ptr<Class> gatherStaticFields(std::set<std::shared_ptr
 	return c.data;
 }
 
-} // namespace comp
+GlobalIdentifiers GlobalIdentifiers::gather(std::shared_ptr<Function> entryPoint)
+{
+	GlobalIdentifiers ret;
 
-#endif /* COMPILER_REFERENCEEXRACTION_H_ */
+	auto rawReferences = gatherReferences(entryPoint);
+	auto allRefs = summarizeReferences(rawReferences);
+	auto globalClass = gatherStaticFields(allRefs.classes);
+	ret.classes= assignIndices(allRefs.classes, globalClass);
+	ret.functions = assignIndices(allRefs.functions, entryPoint);
+
+	return ret;
+}
+

@@ -66,15 +66,6 @@ struct Continue: StatementBase<Continue>
 	inline Continue(std::shared_ptr<Loop> loop): loop(loop) {}
 };
 
-struct Set: StatementBase<Set>
-{
-	std::shared_ptr<LValue> target;
-	std::shared_ptr<RValue> value;
-
-	inline Set(std::shared_ptr<LValue> target, std::shared_ptr<RValue> value): target(target), value(value) {}
-	inline virtual ~Set() = default;
-};
-
 struct Return: StatementBase<Return>
 {
 	std::vector<std::shared_ptr<RValue>> value;
