@@ -4,21 +4,31 @@
 #include "compiler/builder/ClassBuilder.h"
 #include "compiler/builder/Helpers.h"
 
-TEST_GROUP(Compiler) {};
+#include <iostream>
 
-TEST(Compiler, Sanity)
+TEST_GROUP(Builder) {};
+
+TEST(Builder, Sanity)
 {
 	auto uut = comp::FunctionBuilder::make({}, {});
 
 	auto i = uut <<= comp::declaration(comp::ValueType::integer(), 0);
 	uut <<= i = i + 1;
 
-	auto p = uut.compile();
+	CHECK(std::string("\n") + uut.build().dumpAst() == R"(
+struct c0
+{
+};
 
-//	CHECK(p.functions.size() == 1);
+void f0()
+{
+    int l0 = 0;
+    l0 = l0 + 1;
+}
+)");
 }
 
-TEST(Compiler, Call)
+TEST(Builder, Call)
 {
 	auto h = comp::FunctionBuilder::make({comp::ValueType::integer()}, {});
 	h <<= comp::ret(12);
@@ -32,12 +42,31 @@ TEST(Compiler, Call)
 	f <<= i * 2;
 	f <<= comp::ret();
 
-	auto p = f.compile();
+	CHECK(std::string("\n") + f.build().dumpAst() == R"(
+struct c0
+{
+};
 
-//	CHECK(p.functions.size() == 2);
+void f0()
+{
+    int l0 = f2(f1());
+    l0 * 2;
+    return;
 }
 
-TEST(Compiler, ObjectUsage)
+int f1()
+{
+    return 12;
+}
+
+int f2(int a0)
+{
+    return a0 + 3;
+}
+)");
+}
+
+TEST(Builder, ObjectUsage)
 {
 	auto c = comp::ClassBuilder::make();
 	auto sfInst = c.addStaticField(c);
@@ -51,21 +80,48 @@ TEST(Compiler, ObjectUsage)
 	f <<= c[sfInst] = l;
 	f <<= comp::ret();
 
-	auto p = f.compile();
+	CHECK(std::string("\n") + f.build().dumpAst() == R"(
+struct c0
+{
+  c1* f0;
+};
 
-//	CHECK(p.functions.size() == 2);
+struct c1
+{
+  static c1* s0;
+  int f0;
+  c1* f1;
+};
+
+void f0()
+{
+    c1* l0 = new c1;
+    l0->f1 = nullptr;
+    l0->f0 = 123;
+    c1::s0 = l0;
+    return;
+}
+)");
 }
 
-TEST(Compiler, Ternary)
+TEST(Builder, Ternary)
 {
 	auto f = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
 	f <<= comp::ret(comp::ternary(f[0] >= 2, f(f[0] - 1) * f[0], 1));
-	auto p = f.compile();
 
-//	CHECK(p.functions.size() == 2);
+	CHECK(std::string("\n") + f.build().dumpAst() == R"(
+struct c0
+{
+};
+
+int f0(int a0)
+{
+    return a0 >= 2 ? f0(a0 - 1) * a0 : 1;
+}
+)");
 }
 
-TEST(Compiler, Conditional)
+TEST(Builder, Conditional)
 {
 	auto f = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
 
@@ -75,12 +131,26 @@ TEST(Compiler, Conditional)
 	f <<= 	comp::ret(1);
 	f <<= comp::endBlock();
 
-	auto p = f.compile();
+	CHECK(std::string("\n") + f.build().dumpAst() == R"(
+struct c0
+{
+};
 
-//	CHECK(p.functions.size() == 2);
+int f0(int a0)
+{
+    if(a0 > 2)
+    {
+        return f0(a0 - 1) * a0;
+    }
+    else
+    {
+        return 1;
+    }
+}
+)");
 }
 
-TEST(Compiler, Loop)
+TEST(Builder, Loop)
 {
 	auto f = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
 
@@ -95,7 +165,24 @@ TEST(Compiler, Loop)
 	f <<= comp::endBlock();
 	f <<= comp::ret(ret);
 
-	auto p = f.compile();
+	CHECK(std::string("\n") + f.build().dumpAst() == R"(
+struct c0
+{
+};
 
-//	CHECK(p.functions.size() == 2);
+int f0(int a0)
+{
+    int l0 = 1;
+    while(true)
+    {
+        if(!(a0 > 2))
+        {
+            break;
+        }
+        l0 = l0 * a0;
+        a0 = a0 - 1;
+    }
+    return l0;
+}
+)");
 }

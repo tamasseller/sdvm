@@ -8,7 +8,7 @@
 #include "compiler/model/StatementTypes.h"
 #include "compiler/model/ExpressionNodes.h"
 
-#include "compiler/internal/Compile.h"
+#include "compiler/internal/Compiler.h"
 
 #include "program/Program.h"
 
@@ -58,8 +58,8 @@ public:
 		return {std::make_shared<Call>(data, a)};
 	}
 
-	prog::Program compile() const {
-		return comp::compile(data);
+	Compiler build() const {
+		return {data};
 	}
 };
 

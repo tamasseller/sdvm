@@ -15,9 +15,25 @@ struct ElementReferences
 	std::set<std::shared_ptr<Function>> functions;
 	std::set<std::shared_ptr<Class>> classes;
 
-	inline void operator()(const Call& c) { functions.insert(c.fn); }
-	inline void operator()(const Create& c) { if(c.type) classes.insert(c.type); }
-	inline void operator()(const Dereference& c) { classes.insert(c.field.type); }
+	inline void addFunction(std::shared_ptr<Function> fn)
+	{
+		if(std::find(functions.begin(), functions.end(), fn) == functions.end())
+		{
+			functions.insert(fn);
+		}
+	}
+
+	inline void addClass(std::shared_ptr<Class> c)
+	{
+		if(std::find(classes.begin(), classes.end(), c) == classes.end())
+		{
+			classes.insert(c);
+		}
+	}
+
+	inline void operator()(const Call& c) { addFunction(c.fn); }
+	inline void operator()(const Create& c) { if(c.type) addClass(c.type); }
+	inline void operator()(const Dereference& c) { addClass(c.field.type); }
 };
 
 template<class C>
@@ -146,9 +162,9 @@ static inline ElementReferences summarizeReferences(const std::map<std::shared_p
 
 	for(const auto& d: deps)
 	{
-		ret.functions.insert(d.first);
-		ret.functions.insert(d.second.functions.begin(), d.second.functions.end());
-		ret.classes.insert(d.second.classes.begin(), d.second.classes.end());
+		ret.addFunction(d.first);
+		std::for_each(d.second.functions.begin(), d.second.functions.end(), [&](const auto& v){ret.addFunction(v);});
+		std::for_each(d.second.classes.begin(), d.second.classes.end(), [&](const auto& v){ret.addClass(v);});
 	}
 
 	return ret;
@@ -172,14 +188,17 @@ static inline std::map<E, size_t> assignIndices(const std::set<E> &set, const E&
 
 static inline std::shared_ptr<Class> gatherStaticFields(std::set<std::shared_ptr<Class>> classes)
 {
-	auto c = ClassBuilder::make();
+	auto b = ClassBuilder::make();
 
 	for(const auto &c: classes)
 	{
-		(void)c; // TODO
+		for(const auto &s: c->staticTypes)
+		{
+			b.addField(s);
+		}
 	}
 
-	return c.data;
+	return b.data;
 }
 
 GlobalIdentifiers GlobalIdentifiers::gather(std::shared_ptr<Function> entryPoint)

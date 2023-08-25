@@ -3,14 +3,13 @@ OUTPUT = test
 SOURCES += vm/Vm.cpp
 SOURCES += vm/Storage.cpp
 
-SOURCES += compiler/internal/Compile.cpp
+SOURCES += compiler/internal/Compiler.cpp
 SOURCES += compiler/internal/AstDump.cpp
 SOURCES += compiler/internal/GlobalIdentifiers.cpp
 
-#SOURCES += TestVm.cpp
-#SOURCES += TestStorage.cpp
-
-SOURCES += TestCompiler.cpp
+SOURCES += TestVm.cpp
+SOURCES += TestStorage.cpp
+SOURCES += TestBuilder.cpp
 
 SOURCES += main.cpp
 SOURCES += pet/1test/TestRunnerExperimental.cpp
