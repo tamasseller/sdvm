@@ -2,6 +2,8 @@
 
 #include "ProgramObjectSet.h"
 
+#include "assert.h"
+
 using namespace comp::ast;
 
 std::string ValueType::getReferenceForDump(const ProgramObjectSet &gi) const

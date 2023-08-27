@@ -3,6 +3,7 @@
 #include "compiler/ast/Values.h"
 #include "compiler/ast/Statements.h"
 
+#include "Statements.h"
 #include "ProgramObjectSet.h"
 
 #include "Overloaded.h"
@@ -13,6 +14,9 @@
 
 using namespace comp;
 using namespace comp::ast;
+
+Function::Function(std::vector<ValueType> ret, std::vector<ValueType> args):
+	ret(ret), args(args), body(std::make_shared<Block>()) {}
 
 std::string Function::getReferenceForDump(const ProgramObjectSet& gi) const {
 	return std::string("f") + std::to_string(gi.getFunctionIndex(this));

@@ -1,5 +1,7 @@
 #include "Compiler.h"
 
+#include "compiler/ir/Function.h"
+
 #include <sstream>
 #include <algorithm>
 
@@ -32,19 +34,19 @@ std::string Compiler::dumpAst()
 	return join(parts);
 }
 
-//std::string Compiler::dumpTac()
-//{
-//	std::vector<std::string> parts;
-//
-//	std::transform(gi.classes.begin(), gi.classes.end(), std::back_inserter(parts), [&](const auto &c){return c->dump(gi);});
-//	std::transform(gi.functions.begin(), gi.functions.end(), std::back_inserter(parts), [&](const auto &f){return dumpCfg(gi, f);});
-//
-//	return join(parts);
-//}
+std::string Compiler::dumpCfg()
+{
+	std::vector<std::string> parts;
+
+	std::transform(gi.classes.begin(), gi.classes.end(), std::back_inserter(parts), [&](const auto &c){return c->dump(gi);});
+	std::transform(gi.functions.begin(), gi.functions.end(), std::back_inserter(parts), [&](const auto &f){return ir::Function::from(f)->dump(gi);});
+
+	return join(parts);
+}
 
 prog::Program Compiler::compile()
 {
 	prog::Program ret;
-
+	// TBD
 	return ret;
 }

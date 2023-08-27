@@ -9,6 +9,7 @@
 #include <set>
 #include <list>
 #include <vector>
+#include <algorithm>
 
 using namespace comp;
 using namespace comp::ast;

@@ -19,7 +19,7 @@ public:
 		gi(ast::ProgramObjectSet::shakeTree(entryPoint)) {}
 
 	std::string dumpAst();
-	std::string dumpTac();
+	std::string dumpCfg();
 	prog::Program compile();
 };
 

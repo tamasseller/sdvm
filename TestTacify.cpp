@@ -13,7 +13,7 @@ TEST(Tacify, Sanity)
 	auto uut = comp::FunctionBuilder::make({comp::ast::ValueType::integer()}, {comp::ast::ValueType::integer()});
 	uut <<= comp::ret(uut[0] * (uut[0] + 1) / 2);
 
-	std::cout << uut.build().dumpTac() << std::endl;
+	std::cout << uut.build().dumpCfg() << std::endl;
 }
 
 TEST(Tacify, Lhs)
@@ -26,7 +26,7 @@ TEST(Tacify, Lhs)
 	uut <<= i[f] = i;
 	uut <<= i[f][f][f] = i[f][f];
 
-	std::cout << uut.build().dumpTac() << std::endl;
+	std::cout << uut.build().dumpCfg() << std::endl;
 }
 #endif
 
@@ -35,5 +35,5 @@ TEST(Tacify, Ternary)
 	auto uut = comp::FunctionBuilder::make({comp::ast::ValueType::integer()}, {comp::ast::ValueType::integer()});
 	uut <<= comp::ret(comp::ternary(uut[0] >= 2, uut(uut[0] - 1) * uut[0], 1));
 
-	std::cout << uut.build().dumpTac() << std::endl;
+	std::cout << uut.build().dumpCfg() << std::endl;
 }

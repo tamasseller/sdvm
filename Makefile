@@ -8,12 +8,13 @@ SOURCES += compiler/ast/ValueType.cpp
 SOURCES += compiler/ast/Function.cpp
 SOURCES += compiler/ast/Class.cpp
 
-SOURCES += compiler/internal/Compiler.cpp
-SOURCES += compiler/internal/Tacify.cpp
+SOURCES += compiler/ir/BasicBlock.cpp
+SOURCES += compiler/ir/Function.cpp
 
+SOURCES += compiler/internal/Compiler.cpp
 
 SOURCES += TestVm.cpp
-#SOURCES += TestTacify.cpp
+SOURCES += TestTacify.cpp
 SOURCES += TestBuilder.cpp
 SOURCES += TestStorage.cpp
 

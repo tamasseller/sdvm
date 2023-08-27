@@ -1,12 +1,16 @@
-#include "Tacify.h"
+#include "Function.h"
 
 #include "compiler/ast/Values.h"
 #include "compiler/ast/Statements.h"
 
 #include "Overloaded.h"
 
+#include <sstream>
+#include <algorithm>
+
 using namespace comp;
 using namespace comp::ast;
+using namespace comp::ir;
 
 // proto register
 struct Preg
@@ -147,9 +151,41 @@ static inline void visitStatement(BasicBlockBuilder& bbb, std::shared_ptr<Statem
 	});
 }
 
-std::vector<std::shared_ptr<BasicBlock>> comp::tacify(std::shared_ptr<Function> f)
+std::shared_ptr<ir::Function> ir::Function::from(std::shared_ptr<ast::Function> f)
 {
 	BasicBlockBuilder bbb;
 	visitStatement(bbb, f->body);
-	return bbb.bbs;
+
+	return std::make_shared<ir::Function>(bbb.bbs);
+}
+
+std::string ir::Function::dump(ast::ProgramObjectSet& gi) const
+{
+	std::stringstream ss;
+
+	auto getIdx = [this](auto i) { return std::find(blocks.begin(), blocks.end(), i) - blocks.begin(); };
+
+	for(auto i = 0u; i < blocks.size(); i++)
+	{
+		const auto& bb = blocks[i];
+
+		ss << i << ":" << std::endl;
+		ss << bb->dump(gi);
+
+		if(bb->decisionInput)
+		{
+			ss << "if ???" /*<< dumpExpressionAst(gi, locals, bb->decisionInput, OpPrecedence::Root)*/ << " then goto " << getIdx(bb->then) << " else goto " << getIdx(bb->otherwise) << std::endl;
+		}
+		else if(bb->then)
+		{
+			ss << "goto " << getIdx(bb->then) << std::endl;
+		}
+		else
+		{
+			ss << "done" << std::endl;
+		}
+	}
+
+	const auto ret = ss.str();
+	return ret;
 }
