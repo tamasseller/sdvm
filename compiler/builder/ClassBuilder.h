@@ -1,10 +1,10 @@
 #ifndef COMPILER_CLASS_H_
 #define COMPILER_CLASS_H_
 
-#include "compiler/model/Class.h"
-#include "compiler/model/Field.h"
-#include "compiler/model/ValueType.h"
-#include "compiler/model/ExpressionNodes.h"
+#include "compiler/ast/Class.h"
+#include "compiler/ast/Field.h"
+#include "compiler/ast/ValueType.h"
+#include "compiler/ast/Values.h"
 
 #include "Helpers.h"
 
@@ -14,18 +14,18 @@ class ClassBuilder
 {
 	friend class FunctionBuilder;
 
-	inline ClassBuilder(std::shared_ptr<Class> data): data(data) {}
+	inline ClassBuilder(std::shared_ptr<ast::Class> data): data(data) {}
 
 public:
-	const std::shared_ptr<Class> data;
+	const std::shared_ptr<ast::Class> data;
 
 	inline ClassBuilder() = default;
 
 	static inline ClassBuilder make(ClassBuilder base = {}) {
-		return {std::make_shared<Class>(base.data)};
+		return {std::make_shared<ast::Class>(base.data)};
 	}
 
-	inline Field addField(ValueType vt)
+	inline ast::Field addField(ast::ValueType vt)
 	{
 		const auto idx = data->fieldTypes.size();
 		data->fieldTypes.push_back(vt);
@@ -33,10 +33,10 @@ public:
 	}
 
 	inline auto addField(const ClassBuilder& c) {
-		return addField(ValueType::reference(c.data));
+		return addField(ast::ValueType::reference(c.data));
 	}
 
-	inline StaticField addStaticField(ValueType vt)
+	inline ast::StaticField addStaticField(ast::ValueType vt)
 	{
 		const auto idx = data->staticTypes.size();
 		data->staticTypes.push_back(vt);
@@ -44,16 +44,16 @@ public:
 	}
 
 	inline auto addStaticField(const ClassBuilder& c) {
-		return addStaticField(ValueType::reference(c.data));
+		return addStaticField(ast::ValueType::reference(c.data));
 	}
 
 	inline RValWrapper operator()() {
-		return {std::make_shared<Create>(data)};
+		return {std::make_shared<ast::Create>(data)};
 	}
 
-	inline LValWrapper operator[](const StaticField& sf) const {
+	inline LValWrapper operator[](const ast::StaticField& sf) const {
 		assert(sf.type == data);
-		return {std::make_shared<Global>(sf)};
+		return {std::make_shared<ast::Global>(sf)};
 	}
 };
 

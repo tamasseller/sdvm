@@ -1,11 +1,19 @@
 #include "Tacify.h"
 
-#include "compiler/model/ExpressionNodes.h"
-#include "compiler/model/StatementTypes.h"
+#include "compiler/ast/Values.h"
+#include "compiler/ast/Statements.h"
 
 #include "Overloaded.h"
 
 using namespace comp;
+using namespace comp::ast;
+
+// proto register
+struct Preg
+{
+	const ValueType type;
+	inline Preg(ValueType type): type(type) {}
+};
 
 struct BasicBlockBuilder
 {

@@ -6,6 +6,7 @@
 #include <memory>
 
 namespace comp {
+namespace ast {
 
 struct Field
 {
@@ -25,6 +26,7 @@ struct StaticField: Field {
 	using Field::Field;
 };
 
-} //namespace comp
+} // namespace ast
+} // namespace comp
 
 #endif /* COMPILER_FIELD_H_ */

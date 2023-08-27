@@ -12,7 +12,7 @@ TEST(Builder, Sanity)
 {
 	auto uut = comp::FunctionBuilder::make({}, {});
 
-	auto i = uut <<= comp::declaration(comp::ValueType::integer(), 0);
+	auto i = uut <<= comp::declaration(comp::ast::ValueType::integer(), 0);
 	uut <<= i = i + 1;
 
 	CHECK(std::string("\n") + uut.build().dumpAst() == R"(
@@ -30,10 +30,10 @@ void f0()
 
 TEST(Builder, Call)
 {
-	auto h = comp::FunctionBuilder::make({comp::ValueType::integer()}, {});
+	auto h = comp::FunctionBuilder::make({comp::ast::ValueType::integer()}, {});
 	h <<= comp::ret(12);
 
-	auto g = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
+	auto g = comp::FunctionBuilder::make({comp::ast::ValueType::integer()}, {comp::ast::ValueType::integer()});
 
 	g <<= comp::ret(g[0] + 3);
 
@@ -49,19 +49,19 @@ struct c0
 
 void f0()
 {
-    int l0 = f2(f1());
+    int l0 = f1(f2());
     l0 * 2;
     return;
 }
 
-int f1()
-{
-    return 12;
-}
-
-int f2(int a0)
+int f1(int a0)
 {
     return a0 + 3;
+}
+
+int f2()
+{
+    return 12;
 }
 )");
 }
@@ -70,7 +70,7 @@ TEST(Builder, ObjectUsage)
 {
 	auto c = comp::ClassBuilder::make();
 	auto sfInst = c.addStaticField(c);
-	auto fData = c.addField(comp::ValueType::integer());
+	auto fData = c.addField(comp::ast::ValueType::integer());
 	auto fNext = c.addField(c);
 
 	auto f = comp::FunctionBuilder::make({}, {});
@@ -106,7 +106,7 @@ void f0()
 
 TEST(Builder, Ternary)
 {
-	auto f = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
+	auto f = comp::FunctionBuilder::make({comp::ast::ValueType::integer()}, {comp::ast::ValueType::integer()});
 	f <<= comp::ret(comp::ternary(f[0] >= 2, f(f[0] - 1) * f[0], 1));
 
 	CHECK(std::string("\n") + f.build().dumpAst() == R"(
@@ -123,7 +123,7 @@ int f0(int a0)
 
 TEST(Builder, Conditional)
 {
-	auto f = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
+	auto f = comp::FunctionBuilder::make({comp::ast::ValueType::integer()}, {comp::ast::ValueType::integer()});
 
 	f <<= comp::conditional(f[0] > 2);
 	f <<= 	comp::ret(f(f[0] - 1) * f[0]);
@@ -152,7 +152,7 @@ int f0(int a0)
 
 TEST(Builder, Loop)
 {
-	auto f = comp::FunctionBuilder::make({comp::ValueType::integer()}, {comp::ValueType::integer()});
+	auto f = comp::FunctionBuilder::make({comp::ast::ValueType::integer()}, {comp::ast::ValueType::integer()});
 
 	auto ret = f <<= comp::declaration(1);
 	f <<= comp::loop();

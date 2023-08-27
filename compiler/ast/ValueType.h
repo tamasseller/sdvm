@@ -3,10 +3,13 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 namespace comp {
+namespace ast {
 
 class Class;
+class ProgramObjectSet;
 
 enum TypeKind {
 	Value, Reference
@@ -28,8 +31,11 @@ struct ValueType
 	static inline auto logical() { return primitive(PrimitiveType::Logical); }
 	static inline auto native() { return primitive(PrimitiveType::Native); }
 	static inline auto reference(std::shared_ptr<Class> referenceType) { return ValueType{ .kind = TypeKind::Reference, .referenceType = referenceType}; }
+
+	std::string getReferenceForDump(const ProgramObjectSet &gi) const;
 };
 
+} // namespace ast
 } //namespace comp
 
 #endif /* COMPILER_VALUETYPE_H_ */

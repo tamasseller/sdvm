@@ -1,22 +1,11 @@
 #ifndef COMPILER_MODEL_STATEMENTTYPES_H_
 #define COMPILER_MODEL_STATEMENTTYPES_H_
 
-#include "ExpressionNodes.h"
-
-#include "Statement.h"
+#include "meta/Value.h"
+#include "meta/Statement.h"
 
 namespace comp {
-
-template<class Child>
-struct StatementBase: Statement
-{
-	inline virtual void accept(const StatementVisitor& v) const override final {
-		v.visit(*static_cast<const Child*>(this));
-	}
-
-	inline virtual ~StatementBase() = default;
-};
-
+namespace ast {
 
 struct ExpressionStatement: StatementBase<ExpressionStatement>
 {
@@ -74,7 +63,7 @@ struct Return: StatementBase<Return>
 	inline virtual ~Return() = default;
 };
 
-}  // namespace comp
-
+} // namespace ast
+} // namespace comp
 
 #endif /* COMPILER_MODEL_STATEMENTTYPES_H_ */

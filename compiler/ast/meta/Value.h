@@ -1,11 +1,12 @@
 #ifndef COMPILER_MODEL_EXPRESSION_H_
 #define COMPILER_MODEL_EXPRESSION_H_
 
-#include "ValueType.h"
+#include "compiler/ast/ValueType.h"
 
 #include "assert.h"
 
 namespace comp {
+namespace ast {
 
 #define _VALUE_TYPES() \
 	X(Set) \
@@ -61,8 +62,22 @@ struct RValue
 	inline virtual ~RValue() = default;
 };
 
+template<class Child, class Base = RValue>
+struct ValueBase: Base, std::enable_shared_from_this<Child>
+{
+	inline virtual void accept(const ValueVisitor& v) const override final {
+		v.visit(*static_cast<const Child*>(this));
+	}
+
+	inline virtual ~ValueBase() = default;
+};
+
 struct LValue: RValue {};
 
-}  // namespace comp
+template<class Child>
+struct LValueBase: ValueBase<Child, LValue> {};
+
+} // namespace ast
+} // namespace comp
 
 #endif /* COMPILER_MODEL_EXPRESSION_H_ */

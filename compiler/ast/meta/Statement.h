@@ -5,6 +5,7 @@
 #include <memory>
 
 namespace comp {
+namespace ast {
 
 #define _STATEMENT_TYPES() \
 	X(ExpressionStatement) \
@@ -55,6 +56,17 @@ struct Statement
 	inline virtual ~Statement() = default;
 };
 
-}  // namespace comp
+template<class Child>
+struct StatementBase: Statement
+{
+	inline virtual void accept(const StatementVisitor& v) const override final {
+		v.visit(*static_cast<const Child*>(this));
+	}
+
+	inline virtual ~StatementBase() = default;
+};
+
+} // namespace ast
+} // namespace comp
 
 #endif /* COMPILER_MODEL_STATEMENT_H_ */

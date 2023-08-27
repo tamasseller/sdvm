@@ -1,8 +1,22 @@
-#include "AstDump.h"
-#include "Tacify.h"
+#include "Function.h"
+
+#include "compiler/ast/Values.h"
+#include "compiler/ast/Statements.h"
+
+#include "ProgramObjectSet.h"
+
+#include "Overloaded.h"
+
+#include <map>
+#include <sstream>
+#include <algorithm>
 
 using namespace comp;
+using namespace comp::ast;
 
+std::string Function::getReferenceForDump(const ProgramObjectSet& gi) const {
+	return std::string("f") + std::to_string(gi.getFunctionIndex(this));
+}
 const auto nIndentSpaces = 4;
 
 enum class OpPrecedence: uint8_t
@@ -63,26 +77,7 @@ static inline const std::map<Unary::Operation, std::string> unaryOps = {
 	{Unary::Operation::Not, "!"},
 };
 
-static inline std::string typeName(ValueType vt, const std::map<std::shared_ptr<Class>, size_t> &classIdxTable)
-{
-	if(vt.kind == TypeKind::Value)
-	{
-		switch(vt.primitiveType) {
-			case PrimitiveType::Integer: return "int";
-			case PrimitiveType::Floating: return "float";
-			case PrimitiveType::Logical: return "logical";
-			case PrimitiveType::Native: return "native";
-			default: return "???";
-		}
-	}
-	else
-	{
-		assert(vt.kind == TypeKind::Reference);
-		return "c" + std::to_string(classIdxTable.find(vt.referenceType)->second) + "*";
-	}
-}
-
-static inline std::string dumpExpressionAst(const GlobalIdentifiers& gi, std::map<const Local*, size_t> &locals, std::shared_ptr<const RValue> val, OpPrecedence prevPrec)
+static inline std::string dumpExpressionAst(const ProgramObjectSet& gi, std::map<const Local*, size_t> &locals, std::shared_ptr<const RValue> val, OpPrecedence prevPrec)
 {
 	std::string ret;
 
@@ -96,7 +91,7 @@ static inline std::string dumpExpressionAst(const GlobalIdentifiers& gi, std::ma
 		[&](const Call& v)
 		{
 			std::stringstream ss;
-			ss << "f" << gi.functions.find(v.fn)->second << "(";
+			ss << v.fn->getReferenceForDump(gi) << "(";
 
 			const char* sep = "";
 			for(const auto &a: v.args) {
@@ -128,11 +123,11 @@ static inline std::string dumpExpressionAst(const GlobalIdentifiers& gi, std::ma
 		},
 		[&](const Create& v)
 		{
-			ret = v.type ? "new c" + std::to_string(gi.classes.find(v.type)->second) : "nullptr";
+			ret = v.type ? "new " + v.type->getReferenceForDump(gi) : "nullptr";
 		},
 		[&](const Global& v)
 		{
-			ret = "c" + std::to_string(gi.classes.find(v.field.type)->second) + "::s" + std::to_string(v.field.index);
+			ret = v.field.type->getReferenceForDump(gi) + "::s" + std::to_string(v.field.index);
 		},
 		[&](const Literal& v)
 		{
@@ -171,7 +166,7 @@ static inline std::string dumpExpressionAst(const GlobalIdentifiers& gi, std::ma
 	return ret;
 }
 
-static inline void dumpStatementAst(const GlobalIdentifiers& gi, std::map<const Local*, size_t> &locals, std::stringstream &ss, std::shared_ptr<Statement> stmt, int indent)
+static inline void dumpStatementAst(const ProgramObjectSet& gi, std::map<const Local*, size_t> &locals, std::stringstream &ss, std::shared_ptr<Statement> stmt, int indent)
 {
 	stmt->accept(overloaded
 	{
@@ -193,7 +188,7 @@ static inline void dumpStatementAst(const GlobalIdentifiers& gi, std::map<const 
 		[&](const Declaration& v)
 		{
 			locals.insert({v.local.get(), locals.size()});
-			ss << std::string(nIndentSpaces * indent, ' ') << typeName(v.local->type, gi.classes)
+			ss << std::string(nIndentSpaces * indent, ' ') << v.local->type.getReferenceForDump(gi)
 				<< " l" << locals[v.local.get()] <<  " = "
 				<< dumpExpressionAst(gi, locals, v.initializer, OpPrecedence::Root) << ";" << std::endl;
 		},
@@ -237,80 +232,26 @@ static inline void dumpStatementAst(const GlobalIdentifiers& gi, std::map<const 
 	});
 }
 
-static inline void writeFunctionHeader(const GlobalIdentifiers& gi, std::stringstream &ss, std::shared_ptr<Function> fn)
+static inline void writeFunctionHeader(const ProgramObjectSet& gi, std::stringstream &ss, const Function* fn)
 {
-	ss << (fn->ret.empty() ? "void" : typeName(fn->ret[0], gi.classes));
-	ss << " f" << gi.functions.find(fn)->second << "(";
+	ss << (fn->ret.empty() ? "void" : fn->ret[0].getReferenceForDump(gi));
+	ss << " " << fn->getReferenceForDump(gi) << "(";
 
 	const char* sep = "";
 	for(auto i = 0u; i < fn->args.size(); i++) {
-		ss << sep << typeName(fn->args[i], gi.classes) << " a" << i;
+		ss << sep << fn->args[i].getReferenceForDump(gi) << " a" << i;
 		sep = ", ";
 	}
 
 	ss << ")" << std::endl;
 }
 
-std::string comp::dumpFunctionAst(const GlobalIdentifiers& gi, std::shared_ptr<Function> fn)
+std::string Function::dump(const ProgramObjectSet& gi) const
 {
 	std::stringstream ss;
 	std::map<const Local*, size_t> locals;
-	writeFunctionHeader(gi, ss, fn);
-	dumpStatementAst(gi, locals, ss, fn->body, 0);
-	const auto ret = ss.str();
-	return ret;
-}
-
-std::string comp::dumpClassAst(const GlobalIdentifiers& gi, std::shared_ptr<Class> cl)
-{
-	std::stringstream ss;
-	ss << "struct c" << gi.classes.find(cl)->second << std::endl;
-	ss << "{" << std::endl;
-
-	for(auto i = 0u; i < cl->staticTypes.size(); i++) {
-		ss << "  static " << typeName(cl->staticTypes[i], gi.classes) << " s" << i << ";" << std::endl;
-	}
-
-	for(auto i = 0u; i < cl->fieldTypes.size(); i++) {
-		ss << "  " << typeName(cl->fieldTypes[i], gi.classes) << " f" << i << ";" << std::endl;
-	}
-
-	ss << "}" << ";" << std::endl;
-	const auto ret = ss.str();
-	return ret;
-}
-
-std::string comp::dumpCfg(const GlobalIdentifiers& gi, std::shared_ptr<Function> fn)
-{
-	std::stringstream ss;
-	std::map<const Local*, size_t> locals;
-	writeFunctionHeader(gi, ss, fn);
-
-
-	const auto rawCfg = tacify(fn);
-	auto getIdx = [&](auto i) { return std::find(rawCfg.begin(), rawCfg.end(), i) - rawCfg.begin(); };
-
-	for(auto i = 0u; i < rawCfg.size(); i++)
-	{
-		const auto& bb = rawCfg[i];
-
-		ss << i << ":" << std::endl;
-		dumpStatementAst(gi, locals, ss, bb->code, 1);
-
-		if(bb->decisionInput)
-		{
-			ss << "if " << dumpExpressionAst(gi, locals, bb->decisionInput, OpPrecedence::Root) << " then goto " << getIdx(bb->then) << " else goto " << getIdx(bb->otherwise) << std::endl;
-		}
-		else if(bb->then)
-		{
-			ss << "goto " << getIdx(bb->then) << std::endl;
-		}
-		else
-		{
-			ss << "done" << std::endl;
-		}
-	}
-
+	writeFunctionHeader(gi, ss, this);
+	dumpStatementAst(gi, locals, ss, body, 0);
 	const auto ret = ss.str();
 	return ret;
 }

@@ -3,7 +3,7 @@
 
 #include "StatementSink.h"
 
-#include "compiler/model/ExpressionNodes.h"
+#include "compiler/ast/Values.h"
 
 #include "assert.h"
 
@@ -11,178 +11,178 @@ namespace comp {
 
 struct RValWrapper
 {
-	const std::shared_ptr<RValue> val;
+	const std::shared_ptr<ast::RValue> val;
 
-	inline RValWrapper(const std::shared_ptr<RValue> &rvalue): val(rvalue) {}
+	inline RValWrapper(const std::shared_ptr<ast::RValue> &rvalue): val(rvalue) {}
 
-	inline RValWrapper(int integer): val(std::make_shared<Literal>(integer)) {}
-	inline RValWrapper(bool logical): val(std::make_shared<Literal>(logical)) {}
-	inline RValWrapper(float floating): val(std::make_shared<Literal>(floating)) {}
+	inline RValWrapper(int integer): val(std::make_shared<ast::Literal>(integer)) {}
+	inline RValWrapper(bool logical): val(std::make_shared<ast::Literal>(logical)) {}
+	inline RValWrapper(float floating): val(std::make_shared<ast::Literal>(floating)) {}
 
 	inline void operator ()(std::shared_ptr<StatementSink> sink) const {
-		sink->add(std::make_shared<ExpressionStatement>(val));
+		sink->add(std::make_shared<ast::ExpressionStatement>(val));
 	}
 
-	inline struct LValWrapper operator [](const Field& f) const;
+	inline struct LValWrapper operator [](const ast::Field& f) const;
 
-	template<Binary::Operation ifInt, Binary::Operation ifFloat>
-	inline RValWrapper selectBinary(const std::shared_ptr<RValue> &o)
+	template<ast::Binary::Operation ifInt, ast::Binary::Operation ifFloat>
+	inline RValWrapper selectBinary(const std::shared_ptr<ast::RValue> &o)
 	{
 		const auto t = val->getType();
 		const auto ot = o->getType();
-		assert(t.kind == TypeKind::Value);
-		assert(ot.kind == TypeKind::Value);
+		assert(t.kind == ast::TypeKind::Value);
+		assert(ot.kind == ast::TypeKind::Value);
 
-		if(t.primitiveType == PrimitiveType::Integer)
+		if(t.primitiveType == ast::PrimitiveType::Integer)
 		{
-			assert(ot.primitiveType == PrimitiveType::Integer);
-			return {std::make_shared<Binary>(ifInt, val, o)};
+			assert(ot.primitiveType == ast::PrimitiveType::Integer);
+			return {std::make_shared<ast::Binary>(ifInt, val, o)};
 		}
 		else
 		{
-			assert(t.primitiveType == PrimitiveType::Floating);
-			assert(ot.primitiveType == PrimitiveType::Floating);
-			return {std::make_shared<Binary>(ifFloat, val, o)};
+			assert(t.primitiveType == ast::PrimitiveType::Floating);
+			assert(ot.primitiveType == ast::PrimitiveType::Floating);
+			return {std::make_shared<ast::Binary>(ifFloat, val, o)};
 		}
 	}
 
 	inline auto operator +(const RValWrapper &o) {
-		return selectBinary<Binary::Operation::AddI, Binary::Operation::AddF>(o.val);
+		return selectBinary<ast::Binary::Operation::AddI, ast::Binary::Operation::AddF>(o.val);
 	}
 
 	inline auto operator -(const RValWrapper &o) {
-		return selectBinary<Binary::Operation::SubI, Binary::Operation::SubF>(o.val);
+		return selectBinary<ast::Binary::Operation::SubI, ast::Binary::Operation::SubF>(o.val);
 	}
 
 	inline auto operator *(const RValWrapper &o) {
-		return selectBinary<Binary::Operation::MulI, Binary::Operation::MulF>(o.val);
+		return selectBinary<ast::Binary::Operation::MulI, ast::Binary::Operation::MulF>(o.val);
 	}
 
 	inline auto operator /(const RValWrapper &o) {
-		return selectBinary<Binary::Operation::DivI, Binary::Operation::DivF>(o.val);
+		return selectBinary<ast::Binary::Operation::DivI, ast::Binary::Operation::DivF>(o.val);
 	}
 
 	inline auto operator ==(const RValWrapper &o) {
-		return selectBinary<Binary::Operation::Eq, Binary::Operation::Eq>(o.val);
+		return selectBinary<ast::Binary::Operation::Eq, ast::Binary::Operation::Eq>(o.val);
 	}
 
 	inline auto operator !=(const RValWrapper &o) {
-		return selectBinary<Binary::Operation::Ne, Binary::Operation::Ne>(o.val);
+		return selectBinary<ast::Binary::Operation::Ne, ast::Binary::Operation::Ne>(o.val);
 	}
 
 	inline auto operator <(const RValWrapper &o) {
-		return selectBinary<Binary::Operation::LtI, Binary::Operation::LtF>(o.val);
+		return selectBinary<ast::Binary::Operation::LtI, ast::Binary::Operation::LtF>(o.val);
 	}
 
 	inline auto operator >(const RValWrapper &o) {
-		return selectBinary<Binary::Operation::GtI, Binary::Operation::GtF>(o.val);
+		return selectBinary<ast::Binary::Operation::GtI, ast::Binary::Operation::GtF>(o.val);
 	}
 
 	inline auto operator <=(const RValWrapper &o) {
-		return selectBinary<Binary::Operation::LeI, Binary::Operation::LeF>(o.val);
+		return selectBinary<ast::Binary::Operation::LeI, ast::Binary::Operation::LeF>(o.val);
 	}
 
 	inline auto operator >=(const RValWrapper &o) {
-		return selectBinary<Binary::Operation::GeI, Binary::Operation::GeF>(o.val);
+		return selectBinary<ast::Binary::Operation::GeI, ast::Binary::Operation::GeF>(o.val);
 	}
 
-	template<Binary::Operation ifInt>
-	inline RValWrapper checkIntegerBinary(const std::shared_ptr<RValue> &o) {
+	template<ast::Binary::Operation ifInt>
+	inline RValWrapper checkIntegerBinary(const std::shared_ptr<ast::RValue> &o) {
 		const auto t = val->getType();
 		const auto ot = o->getType();
-		assert(t.kind == TypeKind::Value);
-		assert(ot.kind == TypeKind::Value);
-		assert(t.primitiveType == PrimitiveType::Integer);
-		assert(ot.primitiveType == PrimitiveType::Integer);
-		return {std::make_shared<Binary>(ifInt, val, o)};
+		assert(t.kind == ast::TypeKind::Value); // TODO compiler error
+		assert(ot.kind == ast::TypeKind::Value); // TODO compiler error
+		assert(t.primitiveType == ast::PrimitiveType::Integer); // TODO compiler error
+		assert(ot.primitiveType == ast::PrimitiveType::Integer); // TODO compiler error
+		return {std::make_shared<ast::Binary>(ifInt, val, o)};
 	}
 
 	inline auto operator %(const RValWrapper &o) {
-		return checkIntegerBinary<Binary::Operation::Mod>(o.val);
+		return checkIntegerBinary<ast::Binary::Operation::Mod>(o.val);
 	}
 
 	inline auto operator <<(const RValWrapper &o) {
-		return checkIntegerBinary<Binary::Operation::ShlI>(o.val);
+		return checkIntegerBinary<ast::Binary::Operation::ShlI>(o.val);
 	}
 
 	inline auto operator >>(const RValWrapper &o) {
-		return checkIntegerBinary<Binary::Operation::ShrU>(o.val);
+		return checkIntegerBinary<ast::Binary::Operation::ShrU>(o.val);
 	}
 
 	inline auto operator &(const RValWrapper &o) {
-		return checkIntegerBinary<Binary::Operation::AndI>(o.val);
+		return checkIntegerBinary<ast::Binary::Operation::AndI>(o.val);
 	}
 
 	inline auto operator |(const RValWrapper &o) {
-		return checkIntegerBinary<Binary::Operation::OrI>(o.val);
+		return checkIntegerBinary<ast::Binary::Operation::OrI>(o.val);
 	}
 
 	inline auto operator ^(const RValWrapper &o) {
-		return checkIntegerBinary<Binary::Operation::XorI>(o.val);
+		return checkIntegerBinary<ast::Binary::Operation::XorI>(o.val);
 	}
 
-	template<Binary::Operation op>
-	inline RValWrapper checkLogicBinary(const std::shared_ptr<RValue> &o) {
+	template<ast::Binary::Operation op>
+	inline RValWrapper checkLogicBinary(const std::shared_ptr<ast::RValue> &o) {
 		const auto t = val->getType();
 		const auto ot = o->getType();
-		assert(t.kind == TypeKind::Value);
-		assert(ot.kind == TypeKind::Value);
-		assert(t.primitiveType == PrimitiveType::Logical);
-		assert(ot.primitiveType == PrimitiveType::Logical);
-		return {std::make_shared<Binary>(op, val, o)};
+		assert(t.kind == ast::TypeKind::Value);  // TODO compiler error
+		assert(ot.kind == ast::TypeKind::Value);  // TODO compiler error
+		assert(t.primitiveType == ast::PrimitiveType::Logical); // TODO compiler error
+		assert(ot.primitiveType == ast::PrimitiveType::Logical); // TODO compiler error
+		return {std::make_shared<ast::Binary>(op, val, o)};
 	}
 
 	inline auto operator &&(const RValWrapper &o) {
-		return checkIntegerBinary<Binary::Operation::And>(o.val);
+		return checkIntegerBinary<ast::Binary::Operation::And>(o.val);
 	}
 
 	inline auto operator ||(const RValWrapper &o) {
-		return checkIntegerBinary<Binary::Operation::Or>(o.val);
+		return checkIntegerBinary<ast::Binary::Operation::Or>(o.val);
 	}
 
 	inline RValWrapper operator -()
 	{
 		const auto t = val->getType();
-		assert(t.kind == TypeKind::Value);
+		assert(t.kind == ast::TypeKind::Value);
 
-		if(t.primitiveType == PrimitiveType::Integer)
+		if(t.primitiveType == ast::PrimitiveType::Integer)
 		{
-			return {std::make_shared<Binary>(Binary::Operation::SubI, std::make_shared<Literal>(0), val)};
+			return {std::make_shared<ast::Binary>(ast::Binary::Operation::SubI, std::make_shared<ast::Literal>(0), val)};
 		}
 		else
 		{
-			assert(t.primitiveType == PrimitiveType::Floating);
-			return {std::make_shared<Binary>(Binary::Operation::SubF, std::make_shared<Literal>(0.0f), val)};
+			assert(t.primitiveType == ast::PrimitiveType::Floating);
+			return {std::make_shared<ast::Binary>(ast::Binary::Operation::SubF, std::make_shared<ast::Literal>(0.0f), val)};
 		}
 	}
 
 	inline RValWrapper operator ~()
 	{
 		const auto t = val->getType();
-		assert(t.kind == TypeKind::Value);
-		assert(t.primitiveType == PrimitiveType::Integer);
-		return {std::make_shared<Unary>(Unary::Operation::Neg, val)};
+		assert(t.kind == ast::TypeKind::Value);
+		assert(t.primitiveType == ast::PrimitiveType::Integer);
+		return {std::make_shared<ast::Unary>(ast::Unary::Operation::Neg, val)};
 	}
 
 	inline RValWrapper operator !()
 	{
 		const auto t = val->getType();
-		assert(t.kind == TypeKind::Value);
-		assert(t.primitiveType == PrimitiveType::Logical);
-		return {std::make_shared<Unary>(Unary::Operation::Not, val)};
+		assert(t.kind == ast::TypeKind::Value);
+		assert(t.primitiveType == ast::PrimitiveType::Logical);
+		return {std::make_shared<ast::Unary>(ast::Unary::Operation::Not, val)};
 	}
 
 	inline RValWrapper asFloat()
 	{
 		const auto t = val->getType();
-		assert(t.kind == TypeKind::Value);
-		if(t.primitiveType == PrimitiveType::Integer)
+		assert(t.kind == ast::TypeKind::Value);
+		if(t.primitiveType == ast::PrimitiveType::Integer)
 		{
-			return {std::make_shared<Unary>(Unary::Operation::I2F, val)};
+			return {std::make_shared<ast::Unary>(ast::Unary::Operation::I2F, val)};
 		}
 		else
 		{
-			assert(t.primitiveType == PrimitiveType::Floating);
+			assert(t.primitiveType == ast::PrimitiveType::Floating);
 			return val;
 		}
 	}
@@ -190,14 +190,14 @@ struct RValWrapper
 	inline RValWrapper asInt()
 	{
 		const auto t = val->getType();
-		assert(t.kind == TypeKind::Value);
-		if(t.primitiveType == PrimitiveType::Floating)
+		assert(t.kind == ast::TypeKind::Value);
+		if(t.primitiveType == ast::PrimitiveType::Floating)
 		{
-			return {std::make_shared<Unary>(Unary::Operation::F2I, val)};
+			return {std::make_shared<ast::Unary>(ast::Unary::Operation::F2I, val)};
 		}
 		else
 		{
-			assert(t.primitiveType == PrimitiveType::Integer);
+			assert(t.primitiveType == ast::PrimitiveType::Integer);
 			return val;
 		}
 	}
@@ -205,10 +205,10 @@ struct RValWrapper
 
 struct LValWrapper: RValWrapper
 {
-	inline LValWrapper(std::shared_ptr<LValue> value): RValWrapper(value) {}
+	inline LValWrapper(std::shared_ptr<ast::LValue> value): RValWrapper(value) {}
 
 	inline RValWrapper operator =(const RValWrapper &o) const {
-		return {std::make_shared<Set>(std::static_pointer_cast<LValue>(val), o.val)};
+		return {std::make_shared<ast::Set>(std::static_pointer_cast<ast::LValue>(val), o.val)};
 	}
 
 	inline auto operator =(const LValWrapper &o) const {
@@ -216,8 +216,8 @@ struct LValWrapper: RValWrapper
 	}
 };
 
-inline LValWrapper RValWrapper::operator [](const Field& f) const {
-	return {std::make_shared<Dereference>(val, f)};
+inline LValWrapper RValWrapper::operator [](const ast::Field& f) const {
+	return {std::make_shared<ast::Dereference>(val, f)};
 }
 
 } // namespace comp

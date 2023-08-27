@@ -1,25 +1,13 @@
 #ifndef COMPILER_MODEL_EXPRESSIONNODES_H_
 #define COMPILER_MODEL_EXPRESSIONNODES_H_
 
-#include "Value.h"
+#include "meta/Value.h"
 
 #include "Field.h"
 #include "Function.h"
 
 namespace comp {
-
-template<class Child, class Base = RValue>
-struct ValueBase: Base, std::enable_shared_from_this<Child>
-{
-	inline virtual void accept(const ValueVisitor& v) const override final {
-		v.visit(*static_cast<const Child*>(this));
-	}
-
-	inline virtual ~ValueBase() = default;
-};
-
-template<class Child>
-struct LValueBase: ValueBase<Child, LValue> {};
+namespace ast {
 
 struct Local: LValueBase<Local>
 {
@@ -242,6 +230,7 @@ struct Call: ValueBase<Call>
 	}
 };
 
+} // namespace ast
 }  // namespace comp
 
 #endif /* COMPILER_MODEL_EXPRESSIONNODES_H_ */
