@@ -116,7 +116,7 @@ inline auto ret(const RValWrapper& val)
 {
 	return [val{val.val}](std::shared_ptr<StatementSink>& sink)
 	{
-		std::vector<std::shared_ptr<RValue>> a;
+		std::vector<std::shared_ptr<const RValue>> a;
 		a.push_back(val);
 		return sink->add(std::make_shared<Return>(a));
 	};

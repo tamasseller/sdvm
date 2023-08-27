@@ -9,7 +9,7 @@
 namespace comp {
 
 template<class Child, class Base = RValue>
-struct ValueBase: Base
+struct ValueBase: Base, std::enable_shared_from_this<Child>
 {
 	inline virtual void accept(const ValueVisitor& v) const override final {
 		v.visit(*static_cast<const Child*>(this));
@@ -27,7 +27,7 @@ struct Local: LValueBase<Local>
 
 	inline Local(ValueType type): type(type) {}
 
-	inline virtual ValueType getType() override { return type; }
+	inline virtual ValueType getType() const override { return type; }
 };
 
 struct Argument: LValueBase<Argument>
@@ -37,7 +37,7 @@ struct Argument: LValueBase<Argument>
 
 	inline Argument(ValueType type, size_t idx): type(type), idx(idx) {}
 
-	inline virtual ValueType getType() override { return type; }
+	inline virtual ValueType getType() const override { return type; }
 };
 
 struct Global: LValueBase<Global>
@@ -47,29 +47,29 @@ struct Global: LValueBase<Global>
 	inline Global(const StaticField& field): field(field) {}
 	inline virtual ~Global() = default;
 
-	inline virtual ValueType getType() override { return field.getType(); }
+	inline virtual ValueType getType() const override { return field.getType(); }
 };
 
 struct Dereference: LValueBase<Dereference>
 {
-	const std::shared_ptr<RValue> object;
+	const std::shared_ptr<const RValue> object;
 	const Field field;
 
-	inline Dereference(std::shared_ptr<RValue> object, const Field& field): object(object), field(field) {}
+	inline Dereference(std::shared_ptr<const RValue> object, const Field& field): object(object), field(field) {}
 	inline virtual ~Dereference() = default;
 
-	inline virtual ValueType getType() override { return field.getType(); }
+	inline virtual ValueType getType() const override { return field.getType(); }
 };
 
 struct Set: ValueBase<Set>
 {
-	std::shared_ptr<LValue> target;
-	std::shared_ptr<RValue> value;
+	std::shared_ptr<const LValue> target;
+	std::shared_ptr<const RValue> value;
 
-	inline Set(std::shared_ptr<LValue> target, std::shared_ptr<RValue> value): target(target), value(value) {}
+	inline Set(std::shared_ptr<const LValue> target, std::shared_ptr<const RValue> value): target(target), value(value) {}
 	inline virtual ~Set() = default;
 
-	inline virtual ValueType getType() override { return value->getType(); }
+	inline virtual ValueType getType() const override { return value->getType(); }
 };
 
 struct Literal: ValueBase<Literal>
@@ -87,7 +87,7 @@ struct Literal: ValueBase<Literal>
 	inline Literal(float floating): type(ValueType::floating()), floating(floating) {}
 	inline Literal(bool logical): type(ValueType::logical()), logical(logical) {}
 
-	inline virtual ValueType getType() override { return type; }
+	inline virtual ValueType getType() const override { return type; }
 };
 
 struct Unary: ValueBase<Unary>
@@ -98,11 +98,11 @@ struct Unary: ValueBase<Unary>
 	};
 
 	const Operation op;
-	const std::shared_ptr<RValue> arg;
+	const std::shared_ptr<const RValue> arg;
 
-	Unary(Operation op, std::shared_ptr<RValue> arg): op(op), arg(arg) {}
+	Unary(Operation op, std::shared_ptr<const RValue> arg): op(op), arg(arg) {}
 
-	inline virtual ValueType getType() override
+	inline virtual ValueType getType() const override
 	{
 		switch(op)
 		{
@@ -157,11 +157,11 @@ struct Binary: ValueBase<Binary>
 	};
 
 	const Operation op;
-	const std::shared_ptr<RValue> first, second;
+	const std::shared_ptr<const RValue> first, second;
 
-	Binary(Operation op, std::shared_ptr<RValue> first, std::shared_ptr<RValue> second): op(op), first(first), second(second) {}
+	Binary(Operation op, std::shared_ptr<const RValue> first, std::shared_ptr<const RValue> second): op(op), first(first), second(second) {}
 
-	inline virtual ValueType getType() override
+	inline virtual ValueType getType() const override
 	{
 		switch(op)
 		{
@@ -207,12 +207,12 @@ struct Binary: ValueBase<Binary>
 
 struct Ternary: ValueBase<Ternary>
 {
-	const std::shared_ptr<RValue> condition, then, otherwise;
+	const std::shared_ptr<const RValue> condition, then, otherwise;
 
-	Ternary(std::shared_ptr<RValue> condition, std::shared_ptr<RValue> then, std::shared_ptr<RValue> otherwise):
+	Ternary(std::shared_ptr<const RValue> condition, std::shared_ptr<const RValue> then, std::shared_ptr<const RValue> otherwise):
 		condition(condition), then(then), otherwise(otherwise) {}
 
-	inline virtual ValueType getType() override {
+	inline virtual ValueType getType() const override {
 		// TODO assert(then->getType() == otherwise->getType());
 		return then->getType();
 	}
@@ -224,17 +224,17 @@ struct Create: ValueBase<Create>
 
 	inline Create(decltype(type) type): type(type) {}
 
-	inline virtual ValueType getType() override { return ValueType::reference(type); }
+	inline virtual ValueType getType() const override { return ValueType::reference(type); }
 };
 
 struct Call: ValueBase<Call>
 {
 	std::shared_ptr<Function> fn;
-	std::vector<std::shared_ptr<RValue>> args;
+	std::vector<std::shared_ptr<const RValue>> args;
 
-	inline Call(std::shared_ptr<Function> fn, std::vector<std::shared_ptr<RValue>> args): fn(fn), args(args) {}
+	inline Call(std::shared_ptr<Function> fn, std::vector<std::shared_ptr<const RValue>> args): fn(fn), args(args) {}
 
-	inline virtual ValueType getType() override
+	inline virtual ValueType getType() const override
 	{
 		assert(fn->ret.size() == 1); // compile error
 

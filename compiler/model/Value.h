@@ -48,7 +48,7 @@ struct LambdaValueVisitor: ValueVisitor
 
 struct RValue
 {
-	virtual ValueType getType() = 0;
+	virtual ValueType getType() const = 0;
 
 	virtual void accept(const ValueVisitor& v) const = 0;
 

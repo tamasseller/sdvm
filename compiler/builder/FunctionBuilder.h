@@ -50,8 +50,8 @@ public:
 	template<class... Args>
 	inline RValWrapper operator()(Args&&... args)
 	{
-		std::shared_ptr<RValue> as[] = {args.val...};
-		std::vector<std::shared_ptr<RValue>> a{as, as + sizeof(as)/sizeof(as[0])};
+		std::shared_ptr<const RValue> as[] = {args.val...};
+		std::vector<std::shared_ptr<const RValue>> a{as, as + sizeof(as)/sizeof(as[0])};
 
 		assert(a.size() == data->args.size()); // compile error, TODO check types
 

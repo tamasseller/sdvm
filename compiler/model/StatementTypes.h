@@ -20,7 +20,7 @@ struct StatementBase: Statement
 
 struct ExpressionStatement: StatementBase<ExpressionStatement>
 {
-	std::shared_ptr<RValue> val;
+	std::shared_ptr<const RValue> val;
 	inline ExpressionStatement(decltype(val) val): val(val) {}
 };
 
@@ -31,20 +31,20 @@ struct Block: StatementBase<Block>
 
 struct Declaration: StatementBase<Declaration>
 {
-	const std::shared_ptr<Local> local;
-	const std::shared_ptr<RValue> initializer;
+	const std::shared_ptr<const Local> local;
+	const std::shared_ptr<const RValue> initializer;
 
-	inline Declaration(std::shared_ptr<Local> local, std::shared_ptr<RValue> initializer): local(local), initializer(initializer) {}
+	inline Declaration(std::shared_ptr<const Local> local, std::shared_ptr<const RValue> initializer): local(local), initializer(initializer) {}
 	inline virtual ~Declaration() = default;
 };
 
 struct Conditional: StatementBase<Conditional>
 {
-	const std::shared_ptr<RValue> condition;
+	const std::shared_ptr<const RValue> condition;
 	const std::shared_ptr<Block> then = std::make_shared<Block>();
 	const std::shared_ptr<Block> otherwise = std::make_shared<Block>();
 
-	inline Conditional(std::shared_ptr<RValue> condition): condition(condition) {}
+	inline Conditional(std::shared_ptr<const RValue> condition): condition(condition) {}
 };
 
 struct Loop: StatementBase<Loop>
@@ -68,9 +68,9 @@ struct Continue: StatementBase<Continue>
 
 struct Return: StatementBase<Return>
 {
-	std::vector<std::shared_ptr<RValue>> value;
+	std::vector<std::shared_ptr<const RValue>> value;
 
-	inline Return(const std::vector<std::shared_ptr<RValue>> &value = {}): value(value) {}
+	inline Return(const std::vector<std::shared_ptr<const RValue>> &value = {}): value(value) {}
 	inline virtual ~Return() = default;
 };
 

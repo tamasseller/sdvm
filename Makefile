@@ -6,10 +6,12 @@ SOURCES += vm/Storage.cpp
 SOURCES += compiler/internal/Compiler.cpp
 SOURCES += compiler/internal/AstDump.cpp
 SOURCES += compiler/internal/GlobalIdentifiers.cpp
+SOURCES += compiler/internal/Tacify.cpp
 
-SOURCES += TestVm.cpp
-SOURCES += TestStorage.cpp
-SOURCES += TestBuilder.cpp
+#SOURCES += TestVm.cpp
+SOURCES += TestTacify.cpp
+#SOURCES += TestBuilder.cpp
+#SOURCES += TestStorage.cpp
 
 SOURCES += main.cpp
 SOURCES += pet/1test/TestRunnerExperimental.cpp

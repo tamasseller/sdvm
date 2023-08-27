@@ -20,7 +20,7 @@ struct ValueType
 {
 	TypeKind kind;
 	PrimitiveType primitiveType;
-	std::shared_ptr<Class> referenceType;
+	const std::shared_ptr<Class> referenceType;
 
 	static inline auto primitive(PrimitiveType primitiveType) { return ValueType{ .kind = TypeKind::Value, .primitiveType = primitiveType}; }
 	static inline auto integer() { return primitive(PrimitiveType::Integer); }

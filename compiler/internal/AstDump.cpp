@@ -1,4 +1,5 @@
 #include "AstDump.h"
+#include "Tacify.h"
 
 using namespace comp;
 
@@ -81,7 +82,7 @@ static inline std::string typeName(ValueType vt, const std::map<std::shared_ptr<
 	}
 }
 
-static inline std::string dumpExpressionAst(const GlobalIdentifiers& gi, std::map<const Local*, size_t> &locals, std::shared_ptr<RValue> val, OpPrecedence prevPrec)
+static inline std::string dumpExpressionAst(const GlobalIdentifiers& gi, std::map<const Local*, size_t> &locals, std::shared_ptr<const RValue> val, OpPrecedence prevPrec)
 {
 	std::string ret;
 
@@ -236,10 +237,8 @@ static inline void dumpStatementAst(const GlobalIdentifiers& gi, std::map<const 
 	});
 }
 
-std::string comp::dumpFunctionAst(const GlobalIdentifiers& gi, std::shared_ptr<Function> fn)
+static inline void writeFunctionHeader(const GlobalIdentifiers& gi, std::stringstream &ss, std::shared_ptr<Function> fn)
 {
-	std::stringstream ss;
-	std::map<const Local*, size_t> locals;
 	ss << (fn->ret.empty() ? "void" : typeName(fn->ret[0], gi.classes));
 	ss << " f" << gi.functions.find(fn)->second << "(";
 
@@ -250,8 +249,14 @@ std::string comp::dumpFunctionAst(const GlobalIdentifiers& gi, std::shared_ptr<F
 	}
 
 	ss << ")" << std::endl;
-	dumpStatementAst(gi, locals, ss, fn->body, 0);
+}
 
+std::string comp::dumpFunctionAst(const GlobalIdentifiers& gi, std::shared_ptr<Function> fn)
+{
+	std::stringstream ss;
+	std::map<const Local*, size_t> locals;
+	writeFunctionHeader(gi, ss, fn);
+	dumpStatementAst(gi, locals, ss, fn->body, 0);
 	const auto ret = ss.str();
 	return ret;
 }
@@ -271,6 +276,41 @@ std::string comp::dumpClassAst(const GlobalIdentifiers& gi, std::shared_ptr<Clas
 	}
 
 	ss << "}" << ";" << std::endl;
+	const auto ret = ss.str();
+	return ret;
+}
+
+std::string comp::dumpCfg(const GlobalIdentifiers& gi, std::shared_ptr<Function> fn)
+{
+	std::stringstream ss;
+	std::map<const Local*, size_t> locals;
+	writeFunctionHeader(gi, ss, fn);
+
+
+	const auto rawCfg = tacify(fn);
+	auto getIdx = [&](auto i) { return std::find(rawCfg.begin(), rawCfg.end(), i) - rawCfg.begin(); };
+
+	for(auto i = 0u; i < rawCfg.size(); i++)
+	{
+		const auto& bb = rawCfg[i];
+
+		ss << i << ":" << std::endl;
+		dumpStatementAst(gi, locals, ss, bb->code, 1);
+
+		if(bb->decisionInput)
+		{
+			ss << "if " << dumpExpressionAst(gi, locals, bb->decisionInput, OpPrecedence::Root) << " then goto " << getIdx(bb->then) << " else goto " << getIdx(bb->otherwise) << std::endl;
+		}
+		else if(bb->then)
+		{
+			ss << "goto " << getIdx(bb->then) << std::endl;
+		}
+		else
+		{
+			ss << "done" << std::endl;
+		}
+	}
+
 	const auto ret = ss.str();
 	return ret;
 }

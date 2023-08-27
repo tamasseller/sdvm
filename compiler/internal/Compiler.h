@@ -20,6 +20,7 @@ public:
 		gi(GlobalIdentifiers::gather(entryPoint)) {}
 
 	std::string dumpAst();
+	std::string dumpTac();
 	prog::Program compile();
 };
 

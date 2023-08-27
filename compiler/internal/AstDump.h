@@ -12,8 +12,9 @@
 
 namespace comp {
 
-std::string dumpFunctionAst(const GlobalIdentifiers& gi, std::shared_ptr<Function> fn);
+std::string dumpCfg(const GlobalIdentifiers& gi, std::shared_ptr<Function> fn);
 std::string dumpClassAst(const GlobalIdentifiers& gi, std::shared_ptr<Class> cl);
+std::string dumpFunctionAst(const GlobalIdentifiers& gi, std::shared_ptr<Function> fn);
 
 } // namespace comp
 
