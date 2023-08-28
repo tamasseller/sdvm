@@ -3,6 +3,8 @@
 
 #include "BasicBlock.h"
 
+#include "compiler/ast/Function.h"
+
 namespace comp {
 namespace ir {
 

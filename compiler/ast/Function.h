@@ -2,7 +2,8 @@
 #define COMPILER_FUNCTIONDESC_H_
 
 #include "ValueType.h"
-#include "meta/Statement.h"
+
+#include <vector>
 
 namespace comp {
 namespace ast {

@@ -82,7 +82,8 @@ struct Unary: ValueBase<Unary>
 {
 	enum class Operation
 	{
-		Neg, I2F, F2I, Not
+		Neg, I2F, F2I,
+		Not // TODO eliminate
 	};
 
 	const Operation op;
