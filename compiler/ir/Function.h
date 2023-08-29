@@ -5,17 +5,21 @@
 
 #include "compiler/ast/Function.h"
 
+#include <functional>
+
 namespace comp {
 namespace ir {
 
 struct Function
 {
-	std::vector<std::shared_ptr<BasicBlock>> blocks;
-	inline Function(decltype(blocks) blocks): blocks(blocks) {}
+	std::vector<std::shared_ptr<Temporary>> args;
+	std::shared_ptr<BasicBlock> entry;
+
+	inline Function(decltype(args) args, decltype(entry) entry): args(args), entry(entry) {}
 
 	std::string dump(ast::ProgramObjectSet& gi) const;
 
-	static std::shared_ptr<Function> from(std::shared_ptr<ast::Function>);
+	void traverse(std::function<void(std::shared_ptr<BasicBlock>)> c) const;
 };
 
 } // namespace ir

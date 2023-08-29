@@ -46,25 +46,23 @@ std::string BasicBlock::dump(ast::ProgramObjectSet& gi, DumpContext& dc) const
 
 	for(const auto &o: code)
 	{
-		ss << "\t";
-
 		o->accept(overloaded
 		{
-			[&](const Copy& v) {ss << dc.nameOf(v.target) << " <- " << dc.nameOf(v.source);},
-			[&](const Literal& v) {ss << dc.nameOf(v.target) << " <- " << v.integer;},
-			[&](const Unary& v) {ss << dc.nameOf(v.target) << " <- " << unaryOp.find(v.op)->second << dc.nameOf(v.source);},
-			[&](const Create& v) {ss << dc.nameOf(v.target) << " <- new " << v.type->getReferenceForDump(gi);},
-			[&](const LoadField& v) {ss << dc.nameOf(v.target) << " <- " << dc.nameOf(v.object) << "." << v.field.getReferenceForDump(gi);},
-			[&](const StoreField& v) {ss << dc.nameOf(v.source) << " -> " << dc.nameOf(v.object) << "." << v.field.getReferenceForDump(gi);},
-			[&](const LoadGlobal& v) {ss << dc.nameOf(v.target) << " <- " << v.field.getReferenceForDump(gi);},
-			[&](const StoreGlobal& v) {ss << dc.nameOf(v.source) << " -> " << v.field.getReferenceForDump(gi);},
-			[&](const Binary& v) {ss << dc.nameOf(v.target) << " <- " << dc.nameOf(v.first) << " " << binaryOp.find(v.op)->second << " " << dc.nameOf(v.second);},
+			[&](const Copy& v) {ss << dc.nameOf(v.target) << " ← " << dc.nameOf(v.source);},
+			[&](const Literal& v) {ss << dc.nameOf(v.target) << " ← " << v.integer;},
+			[&](const Unary& v) {ss << dc.nameOf(v.target) << " ← " << unaryOp.find(v.op)->second << dc.nameOf(v.source);},
+			[&](const Create& v) {ss << dc.nameOf(v.target) << " ← new " << v.type->getReferenceForDump(gi);},
+			[&](const LoadField& v) {ss << dc.nameOf(v.target) << " ← " << dc.nameOf(v.object) << "." << v.field.getReferenceForDump(gi);},
+			[&](const StoreField& v) {ss << dc.nameOf(v.source) << " → " << dc.nameOf(v.object) << "." << v.field.getReferenceForDump(gi);},
+			[&](const LoadGlobal& v) {ss << dc.nameOf(v.target) << " ← " << v.field.getReferenceForDump(gi);},
+			[&](const StoreGlobal& v) {ss << dc.nameOf(v.source) << " → " << v.field.getReferenceForDump(gi);},
+			[&](const Binary& v) {ss << dc.nameOf(v.target) << " ← " << dc.nameOf(v.first) << " " << binaryOp.find(v.op)->second << " " << dc.nameOf(v.second);},
 			[&](const Call& v)
 			{
 				if(!v.ret.empty())
 				{
 					assert(v.ret.size() == 1);
-					ss << dc.nameOf(v.ret[0]) << " <- ";
+					ss << dc.nameOf(v.ret[0]) << " ← ";
 				}
 				ss << v.fn->getReferenceForDump(gi) << "(";
 
@@ -77,7 +75,7 @@ std::string BasicBlock::dump(ast::ProgramObjectSet& gi, DumpContext& dc) const
 			}
 		});
 
-		ss << std::endl;
+		ss << "\\n";
 	}
 
 	const auto ret = ss.str();

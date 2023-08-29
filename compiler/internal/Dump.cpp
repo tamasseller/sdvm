@@ -39,14 +39,7 @@ std::string Compiler::dumpCfg()
 	std::vector<std::string> parts;
 
 	std::transform(gi.classes.begin(), gi.classes.end(), std::back_inserter(parts), [&](const auto &c){return c->dump(gi);});
-	std::transform(gi.functions.begin(), gi.functions.end(), std::back_inserter(parts), [&](const auto &f){return ir::Function::from(f)->dump(gi);});
+	std::transform(gi.functions.begin(), gi.functions.end(), std::back_inserter(parts), [&](const auto &f){return generateIr(f)->dump(gi);});
 
 	return join(parts);
-}
-
-prog::Program Compiler::compile()
-{
-	prog::Program ret;
-	// TBD
-	return ret;
 }

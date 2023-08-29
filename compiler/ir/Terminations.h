@@ -15,9 +15,9 @@ class BasicBlock;
 
 struct Always: TerminationBase<Always>
 {
-	const std::shared_ptr<BasicBlock> continuation;
+	const std::shared_ptr<BasicBlock> continuation, from;
 
-	inline Always(decltype(continuation) continuation): continuation(continuation) {}
+	inline Always(decltype(continuation) continuation, decltype(from) from): continuation(continuation), from(from) {}
 };
 
 struct Conditional: TerminationBase<Conditional>
@@ -32,17 +32,19 @@ struct Conditional: TerminationBase<Conditional>
 
 	const Condition condition;
 	const std::shared_ptr<Temporary> first, second;
-	const std::shared_ptr<BasicBlock> then, otherwise;
+	const std::shared_ptr<BasicBlock> then, otherwise, from;
 
-	inline Conditional(decltype(condition) condition, decltype(first) first, decltype(second) second, decltype(then) then, decltype(otherwise) otherwise):
-		condition(condition), first(first), second(second), then(then), otherwise(otherwise) {}
+	inline Conditional(decltype(condition) condition, decltype(first) first, decltype(second) second,
+			decltype(then) then, decltype(otherwise) otherwise, decltype(from) from):
+		condition(condition), first(first), second(second), then(then), otherwise(otherwise), from(from) {}
 };
 
 struct Leave: TerminationBase<Leave>
 {
 	const std::vector<std::shared_ptr<Temporary>> ret;
+	const std::shared_ptr<BasicBlock> from;
 
-	inline Leave(decltype(ret) ret): ret(ret) {}
+	inline Leave(decltype(ret) ret, decltype(from) from): ret(ret), from(from) {}
 };
 
 } // namespace ir

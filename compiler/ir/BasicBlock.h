@@ -28,6 +28,7 @@ struct BasicBlock
 			return "t" + std::to_string((it != ts.end()) ? it->second : ts.insert({t, ts.size()}).first->second);
 		}
 	};
+
 	std::string dump(ast::ProgramObjectSet& gi, DumpContext& dc) const;
 };
 
