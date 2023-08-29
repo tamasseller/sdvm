@@ -38,7 +38,6 @@ TEST(Tacify, Ternary)
 
 	std::cout << uut.build().dumpCfg() << std::endl;
 }
-#endif
 
 TEST(Tacify, Conditional)
 {
@@ -48,6 +47,25 @@ TEST(Tacify, Conditional)
 	uut <<= comp::otherwise();
 	uut <<= comp::ret(uut[0]);
 	uut <<= comp::endBlock();
+
+	std::cout << uut.build().dumpCfg() << std::endl;
+}
+#endif
+
+TEST(Tacify, Loop)
+{
+	auto uut = comp::FunctionBuilder::make({comp::ast::ValueType::integer()}, {comp::ast::ValueType::integer()});
+
+	auto r = uut <<= comp::declaration(1);
+	uut <<= comp::loop();
+	uut <<= 	comp::conditional(!(uut[0] > 2));
+	uut <<= 		comp::exitLoop();
+	uut <<= 	comp::endBlock();
+
+	uut <<= 	r = r * uut[0];
+	uut <<= 	uut[0] = uut[0] - 1;
+	uut <<= comp::endBlock();
+	uut <<= comp::ret(r);
 
 	std::cout << uut.build().dumpCfg() << std::endl;
 }

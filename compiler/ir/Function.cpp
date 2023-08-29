@@ -19,14 +19,42 @@ using namespace comp::ir;
 
 struct BuilderContext
 {
+	struct LoopInfo
+	{
+		std::shared_ptr<BasicBlock> start;
+		std::vector<std::function<void(std::shared_ptr<BasicBlock>)>> endConsumers;
+
+		inline LoopInfo(decltype(start) start): start(start) {}
+	};
+
 	std::vector<std::shared_ptr<BasicBlock>> bbs;
 	std::map<std::shared_ptr<const ast::Local>, std::shared_ptr<Temporary>> locals;
 	std::vector<std::shared_ptr<Temporary>> args;
+	std::map<const void*, LoopInfo> loops;
 
 	BuilderContext(std::vector<ast::ValueType> argTypes)
 	{
 		std::transform(argTypes.begin(), argTypes.end(), std::back_inserter(args), [&](auto& t){ return std::make_shared<Temporary>(t); });
 		bbs.push_back(std::make_shared<BasicBlock>());
+	}
+
+	void addLocal(std::shared_ptr<const ast::Local> local, std::shared_ptr<Temporary> t)
+	{
+		const bool inserted = locals.insert({local, t}).second;
+		assert(inserted);
+	}
+
+	std::shared_ptr<Temporary> getLocal(std::shared_ptr<const ast::Local> local)
+	{
+		const auto it = locals.find(local);
+		assert(it != locals.end());
+		return it->second;
+	}
+
+	std::shared_ptr<Temporary> arg(size_t idx)
+	{
+		assert(idx < args.size());
+		return args[idx];
 	}
 
 	void addOp(std::shared_ptr<Operation> stmt) {
@@ -81,25 +109,6 @@ struct BuilderContext
 		endifPoint.first->termination = std::make_shared<Always>(endifPoint.second);
 	}
 
-	void addLocal(std::shared_ptr<const ast::Local> local, std::shared_ptr<Temporary> t)
-	{
-		const bool inserted = locals.insert({local, t}).second;
-		assert(inserted);
-	}
-
-	std::shared_ptr<Temporary> getLocal(std::shared_ptr<const ast::Local> local)
-	{
-		const auto it = locals.find(local);
-		assert(it != locals.end());
-		return it->second;
-	}
-
-	std::shared_ptr<Temporary> arg(size_t idx)
-	{
-		assert(idx < args.size());
-		return args[idx];
-	}
-
 	std::shared_ptr<ir::Function> build()
 	{
 		assert(bbs.back()->code.empty());
@@ -112,20 +121,23 @@ struct BuilderContext
 		{
 			const auto current = *toDo.begin();
 			toDo.erase(current);
-			reachable.insert(current);
-			current->termination->accept(overloaded
+
+			if(reachable.insert(current).second)
 			{
-				[&](const Leave &v){},
-				[&](const Always &v)
+				current->termination->accept(overloaded
 				{
-					toDo.insert(v.continuation);
-				},
-				[&](const Conditional &v)
-				{
-					toDo.insert(v.then);
-					toDo.insert(v.otherwise);
-				},
-			});
+					[&](const Leave &v){},
+					[&](const Always &v)
+					{
+						toDo.insert(v.continuation);
+					},
+					[&](const Conditional &v)
+					{
+						toDo.insert(v.then);
+						toDo.insert(v.otherwise);
+					},
+				});
+			}
 		}
 
 		for(auto it = bbs.begin(); it != bbs.end();)
@@ -141,6 +153,48 @@ struct BuilderContext
 		}
 
 		return std::make_shared<ir::Function>(bbs);
+	}
+
+	template<class C>
+	void loop(const void* loopIdentity, C&& c)
+	{
+		auto startPoint = close();
+		startPoint.first->termination = std::make_shared<Always>(startPoint.second);
+
+		auto l = loops.insert({loopIdentity, LoopInfo(startPoint.second)});
+		assert(l.second);
+
+		c();
+
+		auto endPoint = close();
+		endPoint.first->termination = std::make_shared<Always>(startPoint.second);
+
+		for(const auto& cb: l.first->second.endConsumers)
+		{
+			cb(endPoint.second);
+		}
+
+		loops.erase(l.first);
+	}
+
+	void continueLoop(const void* loopIdentity)
+	{
+		auto it = loops.find(loopIdentity);
+		assert(it != loops.end()); // TODO compiler error: continue outside loop
+
+		auto cutPoint = close();
+		cutPoint.first->termination = std::make_shared<Always>(it->second.start);
+	}
+
+	void breakLoop(const void* loopIdentity)
+	{
+		auto it = loops.find(loopIdentity);
+		assert(it != loops.end()); // TODO compiler error: continue outside loop
+
+		auto cutPoint = close();
+		it->second.endConsumers.push_back([first{cutPoint.first}](auto end){
+			first->termination = std::make_shared<Always>(end);
+		});
 	}
 };
 
@@ -222,7 +276,11 @@ static inline std::shared_ptr<Temporary> visitExpression(BuilderContext& bbb, st
 			switch(v.op)
 			{
 				case ast::Unary::Operation::Not:
-					// TODO eliminate with jumpy-jumpy
+					ret = std::make_shared<Temporary>(v.getType());
+					bbb.branch(visitExpression(bbb, v.arg),
+							[&](){ bbb.addOp(std::make_shared<Literal>(ret, 1)); },
+							[&](){ bbb.addOp(std::make_shared<Literal>(ret, 0)); });
+
 					break;
 				default:
 				{
@@ -344,9 +402,15 @@ static inline void visitStatement(BuilderContext& bbb, std::shared_ptr<ast::Stat
 			[&](){ visitStatement(bbb, v.then); },
 			[&](){ visitStatement(bbb, v.otherwise); });
 		},
-		[&](const ast::Continue& v){}, // TODO eliminate with jumpy-jumpy
-		[&](const ast::Break& v){}, // TODO eliminate with jumpy-jumpy
-		[&](const ast::Loop& v){}, // TODO eliminate with jumpy-jumpy
+		[&](const ast::Loop& v)
+		{
+			bbb.loop(&v, [&]()
+			{
+				visitStatement(bbb, v.body);
+			});
+		},
+		[&](const ast::Continue& v) { bbb.continueLoop(v.loop.get()); },
+		[&](const ast::Break& v) { bbb.breakLoop(v.loop.get()); },
 	});
 }
 
