@@ -8,6 +8,8 @@
 namespace comp {
 namespace ast {
 
+class ProgramObjectSet;
+
 struct Field
 {
 	std::shared_ptr<Class> type;
@@ -20,10 +22,14 @@ struct Field
 	inline auto getType() const {
 		return type->fieldTypes[index];
 	}
+
+	std::string getReferenceForDump(const ProgramObjectSet& gi) const;
 };
 
 struct StaticField: Field {
 	using Field::Field;
+
+	std::string getReferenceForDump(const ProgramObjectSet& gi) const;
 };
 
 } // namespace ast

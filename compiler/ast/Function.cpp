@@ -131,7 +131,7 @@ static inline std::string dumpExpressionAst(const ProgramObjectSet& gi, std::map
 		},
 		[&](const Global& v)
 		{
-			ret = v.field.type->getReferenceForDump(gi) + "::s" + std::to_string(v.field.index);
+			ret = v.field.getReferenceForDump(gi);;
 		},
 		[&](const Literal& v)
 		{
@@ -163,7 +163,7 @@ static inline std::string dumpExpressionAst(const ProgramObjectSet& gi, std::map
 		},
 		[&](const Dereference& v)
 		{
-			ret = dumpExpressionAst(gi, locals, v.object, OpPrecedence::CastCallMember) + "->f" + std::to_string(v.field.index);
+			ret = dumpExpressionAst(gi, locals, v.object, OpPrecedence::CastCallMember) + "->" + v.field.getReferenceForDump(gi);
 		}
 	});
 

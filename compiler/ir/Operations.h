@@ -37,6 +37,13 @@ struct Unary: OperationBase<Unary>
 		target(target), source(source), op(op) {}
 };
 
+struct Copy: OperationBase<Copy>
+{
+	const std::shared_ptr<Temporary> target, source;
+
+	inline Copy(decltype(target) target, decltype(source) source): target(target), source(source) {}
+};
+
 struct Create: OperationBase<Create>
 {
 	const std::shared_ptr<Temporary> target;

@@ -7,16 +7,17 @@ SOURCES += compiler/ast/ProgramObjectSet.cpp
 SOURCES += compiler/ast/ValueType.cpp
 SOURCES += compiler/ast/Function.cpp
 SOURCES += compiler/ast/Class.cpp
+SOURCES += compiler/ast/Field.cpp
 
 SOURCES += compiler/ir/BasicBlock.cpp
 SOURCES += compiler/ir/Function.cpp
 
 SOURCES += compiler/internal/Compiler.cpp
 
-SOURCES += TestVm.cpp
-SOURCES += TestTacify.cpp
-SOURCES += TestBuilder.cpp
-SOURCES += TestStorage.cpp
+#SOURCES += TestStorage.cpp
+#SOURCES += TestVm.cpp
+#SOURCES += TestBuilder.cpp
+SOURCES += TestIrGen.cpp
 
 SOURCES += main.cpp
 SOURCES += pet/1test/TestRunnerExperimental.cpp

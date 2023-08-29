@@ -5,28 +5,28 @@
 #include "compiler/ast/Values.h"
 #include "compiler/ast/Statements.h"
 
+#include "Terminations.h"
 #include "Overloaded.h"
 #include "assert.h"
 
 #include <map>
+#include <set>
 #include <sstream>
 #include <algorithm>
 
 using namespace comp;
 using namespace comp::ir;
 
-struct Context
+struct BuilderContext
 {
 	std::vector<std::shared_ptr<BasicBlock>> bbs;
 	std::map<std::shared_ptr<const ast::Local>, std::shared_ptr<Temporary>> locals;
 	std::vector<std::shared_ptr<Temporary>> args;
 
-	Context(size_t nArgs)
+	BuilderContext(std::vector<ast::ValueType> argTypes)
 	{
-		for(auto i = 0u; i < nArgs; i++)
-		{
-			args.push_back(std::make_shared<Temporary>());
-		}
+		std::transform(argTypes.begin(), argTypes.end(), std::back_inserter(args), [&](auto& t){ return std::make_shared<Temporary>(t); });
+		bbs.push_back(std::make_shared<BasicBlock>());
 	}
 
 	void addOp(std::shared_ptr<Operation> stmt) {
@@ -34,9 +34,9 @@ struct Context
 	}
 
 	template<class C>
-	auto addOp(C&& c)
+	auto genOp(ast::ValueType t, C&& c)
 	{
-		auto ret = std::make_shared<Temporary>();
+		auto ret = std::make_shared<Temporary>(t);
 		bbs.back()->code.push_back(c(ret));
 		return ret;
 	}
@@ -46,6 +46,39 @@ struct Context
 		auto old = bbs.back();
 		bbs.push_back(std::make_shared<BasicBlock>());
 		return {old, bbs.back()};
+	}
+
+	std::shared_ptr<Temporary> condToBool(Conditional::Condition condition, std::shared_ptr<Temporary> first, std::shared_ptr<Temporary> second)
+	{
+		auto ret = std::make_shared<Temporary>(ast::ValueType::logical());
+
+		auto ifThenPoint = close();
+		addOp(std::make_shared<Literal>(ret, 1));
+		auto thenElsePoint = close();
+		addOp(std::make_shared<Literal>(ret, 0));
+		auto endifPoint = close();
+
+		ifThenPoint.first->termination = std::make_shared<Conditional>(condition, first, second, ifThenPoint.second, thenElsePoint.second);
+		thenElsePoint.first->termination = std::make_shared<Always>(endifPoint.second);
+		endifPoint.first->termination = std::make_shared<Always>(endifPoint.second);
+
+		return ret;
+	}
+
+	template<class T, class O>
+	void branch(std::shared_ptr<Temporary> decisionInput, T&& then, O&& otherwise)
+	{
+		auto tru = genOp(ast::ValueType::logical(), [&](auto t){ return std::make_shared<Literal>(t, 1); });
+
+		auto ifThenPoint = close();
+		then();
+		auto thenElsePoint = close();
+		otherwise();
+		auto endifPoint = close();
+
+		ifThenPoint.first->termination = std::make_shared<Conditional>(Conditional::Condition::Eq, decisionInput, tru, ifThenPoint.second, thenElsePoint.second);
+		thenElsePoint.first->termination = std::make_shared<Always>(endifPoint.second);
+		endifPoint.first->termination = std::make_shared<Always>(endifPoint.second);
 	}
 
 	void addLocal(std::shared_ptr<const ast::Local> local, std::shared_ptr<Temporary> t)
@@ -66,6 +99,49 @@ struct Context
 		assert(idx < args.size());
 		return args[idx];
 	}
+
+	std::shared_ptr<ir::Function> build()
+	{
+		assert(bbs.back()->code.empty());
+		assert(!bbs.back()->termination);
+		bbs.pop_back();
+
+		std::set<std::shared_ptr<BasicBlock>> toDo{bbs.front()}, reachable;
+
+		while(!toDo.empty())
+		{
+			const auto current = *toDo.begin();
+			toDo.erase(current);
+			reachable.insert(current);
+			current->termination->accept(overloaded
+			{
+				[&](const Leave &v){},
+				[&](const Always &v)
+				{
+					toDo.insert(v.continuation);
+				},
+				[&](const Conditional &v)
+				{
+					toDo.insert(v.then);
+					toDo.insert(v.otherwise);
+				},
+			});
+		}
+
+		for(auto it = bbs.begin(); it != bbs.end();)
+		{
+			if(reachable.find(*it) == reachable.end())
+			{
+				it = bbs.erase(it);
+			}
+			else
+			{
+				it++;
+			}
+		}
+
+		return std::make_shared<ir::Function>(bbs);
+	}
 };
 
 inline auto mapUnaryOp(ast::Unary::Operation op)
@@ -85,7 +161,6 @@ inline auto mapBinaryOp(ast::Binary::Operation op)
 	switch(op)
 	{
 		default:
-		case ast::Binary::Operation::AddF: return Binary::Op::AddF;
 		case ast::Binary::Operation::AddI: return Binary::Op::AddI;
 		case ast::Binary::Operation::MulI: return Binary::Op::MulI;
 		case ast::Binary::Operation::SubI: return Binary::Op::SubI;
@@ -104,21 +179,43 @@ inline auto mapBinaryOp(ast::Binary::Operation op)
 	}
 }
 
-static inline std::shared_ptr<Temporary> visitExpression(Context& bbb, std::shared_ptr<const ast::RValue> val)
+inline auto mapConditionalOp(ast::Binary::Operation op)
+{
+	switch(op)
+	{
+		default:
+		case ast::Binary::Operation::Eq: return Conditional::Condition::Eq;
+		case ast::Binary::Operation::Ne: return Conditional::Condition::Ne;
+		case ast::Binary::Operation::LtI: return Conditional::Condition::LtI;
+		case ast::Binary::Operation::GtI: return Conditional::Condition::GtI;
+		case ast::Binary::Operation::LeI: return Conditional::Condition::LeI;
+		case ast::Binary::Operation::GeI: return Conditional::Condition::GeI;
+		case ast::Binary::Operation::LtU: return Conditional::Condition::LtU;
+		case ast::Binary::Operation::GtU: return Conditional::Condition::GtU;
+		case ast::Binary::Operation::LeU: return Conditional::Condition::LeU;
+		case ast::Binary::Operation::GeU: return Conditional::Condition::GeU;
+		case ast::Binary::Operation::LtF: return Conditional::Condition::LtF;
+		case ast::Binary::Operation::GtF: return Conditional::Condition::GtF;
+		case ast::Binary::Operation::LeF: return Conditional::Condition::LeF;
+		case ast::Binary::Operation::GeF: return Conditional::Condition::GeF;
+	}
+}
+
+static inline std::shared_ptr<Temporary> visitExpression(BuilderContext& bbb, std::shared_ptr<const ast::RValue> val)
 {
 	std::shared_ptr<Temporary> ret;
 
 	val->accept(overloaded
 	{
 		[&](const ast::Local& v) { ret = bbb.getLocal(v.shared_from_this()); },
-		[&](const ast::Global& v) { ret = bbb.addOp([&](auto t){ return std::make_shared<LoadGlobal>(t, v.field); }); },
+		[&](const ast::Global& v) { ret = bbb.genOp(v.getType(), [&](auto t){ return std::make_shared<LoadGlobal>(t, v.field); }); },
 		[&](const ast::Argument& v) { ret = bbb.arg(v.idx); },
-		[&](const ast::Create& v) { ret = bbb.addOp([&](auto t){ return std::make_shared<Create>(t, v.type); }); },
-		[&](const ast::Literal& v) { ret = bbb.addOp([&](auto t){ return std::make_shared<Literal>(t, v.integer); }); },
+		[&](const ast::Create& v) { ret = bbb.genOp(v.getType(), [&](auto t){ return std::make_shared<Create>(t, v.type); }); },
+		[&](const ast::Literal& v) { ret = bbb.genOp(v.getType(), [&](auto t){ return std::make_shared<Literal>(t, v.integer); }); },
 		[&](const ast::Dereference& v)
 		{
 			const auto in = visitExpression(bbb, v.object);
-			ret = bbb.addOp([&](auto t){ return std::make_shared<LoadField>(t, in, v.field); });
+			ret = bbb.genOp(v.getType(), [&](auto t){ return std::make_shared<LoadField>(t, in, v.field); });
 		},
 		[&](const ast::Unary& v)
 		{
@@ -130,7 +227,7 @@ static inline std::shared_ptr<Temporary> visitExpression(Context& bbb, std::shar
 				default:
 				{
 					const auto in = visitExpression(bbb, v.arg);
-					ret = bbb.addOp([&](auto t){ return std::make_shared<Unary>(t, in, mapUnaryOp(v.op)); });
+					ret = bbb.genOp(v.getType(), [&](auto t){ return std::make_shared<Unary>(t, in, mapUnaryOp(v.op)); });
 				}
 			}
 		},
@@ -152,19 +249,27 @@ static inline std::shared_ptr<Temporary> visitExpression(Context& bbb, std::shar
 				case ast::Binary::Operation::GtF:
 				case ast::Binary::Operation::LeF:
 				case ast::Binary::Operation::GeF:
-					// TODO eliminate with jumpy-jumpy
+					ret = bbb.condToBool(mapConditionalOp(v.op), visitExpression(bbb, v.first), visitExpression(bbb, v.second));
 					break;
 				case ast::Binary::Operation::And:
-					// TODO eliminate with jumpy-jumpy
+					ret = std::make_shared<Temporary>(ast::ValueType::logical());
+					bbb.branch(visitExpression(bbb, v.first),
+							[&](){ bbb.addOp(std::make_shared<Copy>(ret, visitExpression(bbb, v.second))); },
+							[&](){ bbb.addOp(std::make_shared<Literal>(ret, 0)); });
+
 					break;
 				case ast::Binary::Operation::Or:
-					// TODO eliminate with jumpy-jumpy
+					ret = std::make_shared<Temporary>(ast::ValueType::logical());
+					bbb.branch(visitExpression(bbb, v.first),
+							[&](){ bbb.addOp(std::make_shared<Literal>(ret, 1)); },
+							[&](){ bbb.addOp(std::make_shared<Copy>(ret, visitExpression(bbb, v.second))); });
+
 					break;
 				default:
 				{
 					const auto firstIn = visitExpression(bbb, v.first);
 					const auto secondIn = visitExpression(bbb, v.second);
-					ret = bbb.addOp([&](auto t){ return std::make_shared<Binary>(t, firstIn, secondIn, mapBinaryOp(v.op)); });
+					ret = bbb.genOp(v.getType(), [&](auto t){ return std::make_shared<Binary>(t, firstIn, secondIn, mapBinaryOp(v.op)); });
 				}
 			}
 		},
@@ -172,55 +277,45 @@ static inline std::shared_ptr<Temporary> visitExpression(Context& bbb, std::shar
 		{
 			ret = visitExpression(bbb, v.value);
 
-			auto target = v.target;
-
-			target->accept(overloaded{
-				[&](const ast::Local& d){ target = std::make_shared<Dereference>(visitExpression(bbb, d.object), d.field); },
-				[&](const ast::Global& d){ target = std::make_shared<Dereference>(visitExpression(bbb, d.object), d.field); },
-				[&](const ast::Argument& d){ target = std::make_shared<Dereference>(visitExpression(bbb, d.object), d.field); },
-				[&](const ast::Dereference& d){ target = std::make_shared<Dereference>(visitExpression(bbb, d.object), d.field); },
-				[&](const auto& o){}
+			v.target->accept(overloaded{
+				[&](const ast::Local& d){ bbb.addOp(std::make_shared<Copy>(bbb.getLocal(d.shared_from_this()), ret)); },
+				[&](const ast::Global& d){ bbb.addOp(std::make_shared<StoreGlobal>(ret, d.field)); },
+				[&](const ast::Argument& d){ bbb.addOp(std::make_shared<Copy>(bbb.arg(d.idx), ret)); },
+				[&](const ast::Dereference& d)
+				{
+					const auto object = visitExpression(bbb, d.object);
+					bbb.addOp(std::make_shared<StoreField>(ret, object, d.field));
+				},
+				[&](const ast::RValue& o){}
 			});
-
-			bbb.add(std::make_shared<ExpressionStatement>(std::make_shared<Set>(target, ret)));
 		},
 		[&](const ast::Call& v)
 		{
-			std::vector<std::shared_ptr<Temporary>> args;
+			std::vector<std::shared_ptr<Temporary>> args, out;
 			std::transform(v.args.begin(), v.args.end(), std::back_inserter(args), [&](const auto& v){ return visitExpression(bbb, v); });
-			auto call = std::make_shared<Call>(v.fn, std::move(args));
-			if(call->fn->ret.size())
+			std::transform(v.fn->ret.begin(), v.fn->ret.end(), std::back_inserter(out), [&](const auto& v){ return std::make_shared<Temporary>(v); });
+
+			bbb.addOp(std::make_shared<Call>(args, out, v.fn));
+
+			if(!v.fn->ret.empty())
 			{
-				ret = bbb.addTemporary(call);
-			}
-			else
-			{
-				bbb.addOp(std::make_shared<ExpressionStatement>(call));
+				assert(v.fn->ret.size() == 1);
+				ret = out[0];
 			}
 		},
-		[&](const ast::Ternary& v) {
-			auto t = std::make_shared<Temporary>(v.getType());
-			ret = t;
-
-			auto decisionInput = visitExpression(bbb, v.condition);
-			auto ifThenPoint = bbb.close();
-			bbb.add(std::make_shared<ExpressionStatement>(std::make_shared<Set>(t, visitExpression(bbb, v.then))));
-			auto thenElsePoint = bbb.close();
-			bbb.add(std::make_shared<ExpressionStatement>(std::make_shared<Set>(t, visitExpression(bbb, v.otherwise))));
-			auto endifPoint = bbb.close();
-
-			ifThenPoint.first->decisionInput = decisionInput;
-			ifThenPoint.first->then = thenElsePoint.first;
-			ifThenPoint.first->otherwise= thenElsePoint.second;
-			thenElsePoint.first->then = endifPoint.second;
-			thenElsePoint.second->then = endifPoint.second;
+		[&](const ast::Ternary& v)
+		{
+			ret = std::make_shared<Temporary>(v.getType());
+			bbb.branch(visitExpression(bbb, v.condition),
+					[&](){ bbb.addOp(std::make_shared<Copy>(ret, visitExpression(bbb, v.then))); },
+					[&](){ bbb.addOp(std::make_shared<Copy>(ret, visitExpression(bbb, v.otherwise))); });
 		},
 	});
 
 	return ret;
 }
 
-static inline void visitStatement(Context& bbb, std::shared_ptr<ast::Statement> stmt)
+static inline void visitStatement(BuilderContext& bbb, std::shared_ptr<ast::Statement> stmt)
 {
 	stmt->accept(overloaded
 	{
@@ -241,10 +336,14 @@ static inline void visitStatement(Context& bbb, std::shared_ptr<ast::Statement> 
 		{
 			std::vector<std::shared_ptr<Temporary>> retvals;
 			std::transform(v.value.begin(), v.value.end(), std::back_inserter(retvals), [&](const auto& v){ return visitExpression(bbb, v);});
-
-			// TODO jumpy-jumpy
+			bbb.close().first->termination = std::make_shared<Leave>(retvals);
 		},
-		[&](const ast::Conditional& v){}, // TODO eliminate with jumpy-jumpy
+		[&](const ast::Conditional& v)
+		{
+			bbb.branch(visitExpression(bbb, v.condition),
+			[&](){ visitStatement(bbb, v.then); },
+			[&](){ visitStatement(bbb, v.otherwise); });
+		},
 		[&](const ast::Continue& v){}, // TODO eliminate with jumpy-jumpy
 		[&](const ast::Break& v){}, // TODO eliminate with jumpy-jumpy
 		[&](const ast::Loop& v){}, // TODO eliminate with jumpy-jumpy
@@ -253,10 +352,28 @@ static inline void visitStatement(Context& bbb, std::shared_ptr<ast::Statement> 
 
 std::shared_ptr<ir::Function> ir::Function::from(std::shared_ptr<ast::Function> f)
 {
-	Context bbb;
+	BuilderContext bbb(f->args);
 	visitStatement(bbb, f->body);
-	return std::make_shared<ir::Function>(bbb.bbs);
+	return bbb.build();
 }
+
+static inline const std::map<Conditional::Condition, std::string> conditionOp =
+{
+	{Conditional::Condition::Eq, "=="},
+	{Conditional::Condition::Ne, "!="},
+	{Conditional::Condition::LtI, "<"},
+	{Conditional::Condition::GtI, ">"},
+	{Conditional::Condition::LeI, "<="},
+	{Conditional::Condition::GeI, ">="},
+	{Conditional::Condition::LtU, "<"},
+	{Conditional::Condition::GtU, ">"},
+	{Conditional::Condition::LeU, "<="},
+	{Conditional::Condition::GeU, ">="},
+	{Conditional::Condition::LtF, "<"},
+	{Conditional::Condition::GtF, ">"},
+	{Conditional::Condition::LeF, "<="},
+	{Conditional::Condition::GeF, ">="},
+};
 
 std::string ir::Function::dump(ast::ProgramObjectSet& gi) const
 {
@@ -264,25 +381,37 @@ std::string ir::Function::dump(ast::ProgramObjectSet& gi) const
 
 	auto getIdx = [this](auto i) { return std::find(blocks.begin(), blocks.end(), i) - blocks.begin(); };
 
+	BasicBlock::DumpContext dc;
 	for(auto i = 0u; i < blocks.size(); i++)
 	{
 		const auto& bb = blocks[i];
 
 		ss << i << ":" << std::endl;
-		ss << bb->dump(gi);
+		ss << bb->dump(gi, dc);
 
-		if(bb->decisionInput)
+		bb->termination->accept(overloaded
 		{
-			ss << "if ???" /*<< dumpExpressionAst(gi, locals, bb->decisionInput, OpPrecedence::Root)*/ << " then goto " << getIdx(bb->then) << " else goto " << getIdx(bb->otherwise) << std::endl;
-		}
-		else if(bb->then)
-		{
-			ss << "goto " << getIdx(bb->then) << std::endl;
-		}
-		else
-		{
-			ss << "done" << std::endl;
-		}
+			[&](const Always& v) {
+				ss << "next goto " << getIdx(v.continuation) << std::endl;
+			},
+			[&](const Conditional& v)
+			{
+				ss << "if " << dc.nameOf(v.first) << " " << conditionOp.find(v.condition)->second << " " << dc.nameOf(v.second) <<
+						" goto " << getIdx(v.then) << " else goto " << getIdx(v.otherwise) << std::endl;
+			},
+			[&](const Leave& v)
+			{
+				ss << "exit";
+
+				if(!v.ret.empty()) {
+					assert(v.ret.size() == 1);
+					ss << " and return " << dc.nameOf(v.ret[0]);
+				}
+
+				ss << std::endl;
+			},
+		});
+
 	}
 
 	const auto ret = ss.str();
