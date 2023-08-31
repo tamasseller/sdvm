@@ -26,21 +26,9 @@ inline auto mapBinaryOp(ast::Binary::Operation op)
 	switch(op)
 	{
 		default:
-		case ast::Binary::Operation::AddI: return Binary::Op::AddI;
-		case ast::Binary::Operation::MulI: return Binary::Op::MulI;
-		case ast::Binary::Operation::SubI: return Binary::Op::SubI;
-		case ast::Binary::Operation::DivI: return Binary::Op::DivI;
-		case ast::Binary::Operation::Mod:  return Binary::Op::Mod;
-		case ast::Binary::Operation::ShlI: return Binary::Op::ShlI;
-		case ast::Binary::Operation::ShrI: return Binary::Op::ShrI;
-		case ast::Binary::Operation::ShrU: return Binary::Op::ShrU;
-		case ast::Binary::Operation::AndI: return Binary::Op::AndI;
-		case ast::Binary::Operation::OrI:  return Binary::Op::OrI;
-		case ast::Binary::Operation::XorI: return Binary::Op::XorI;
-		case ast::Binary::Operation::AddF: return Binary::Op::AddF;
-		case ast::Binary::Operation::MulF: return Binary::Op::MulF;
-		case ast::Binary::Operation::SubF: return Binary::Op::SubF;
-		case ast::Binary::Operation::DivF: return Binary::Op::DivF;
+#define X(n, ...) case ast::Binary::Operation:: n: return Binary::Op:: n;
+		_ARITHMETIC_OPERATORS(X)
+#undef X
 	}
 }
 
@@ -49,20 +37,9 @@ inline auto mapConditionalOp(ast::Binary::Operation op)
 	switch(op)
 	{
 		default:
-		case ast::Binary::Operation::Eq: return Conditional::Condition::Eq;
-		case ast::Binary::Operation::Ne: return Conditional::Condition::Ne;
-		case ast::Binary::Operation::LtI: return Conditional::Condition::LtI;
-		case ast::Binary::Operation::GtI: return Conditional::Condition::GtI;
-		case ast::Binary::Operation::LeI: return Conditional::Condition::LeI;
-		case ast::Binary::Operation::GeI: return Conditional::Condition::GeI;
-		case ast::Binary::Operation::LtU: return Conditional::Condition::LtU;
-		case ast::Binary::Operation::GtU: return Conditional::Condition::GtU;
-		case ast::Binary::Operation::LeU: return Conditional::Condition::LeU;
-		case ast::Binary::Operation::GeU: return Conditional::Condition::GeU;
-		case ast::Binary::Operation::LtF: return Conditional::Condition::LtF;
-		case ast::Binary::Operation::GtF: return Conditional::Condition::GtF;
-		case ast::Binary::Operation::LeF: return Conditional::Condition::LeF;
-		case ast::Binary::Operation::GeF: return Conditional::Condition::GeF;
+#define X(n, ...) case ast::Binary::Operation:: n: return Conditional::Condition:: n;
+		_CONDITIONAL_OPERATORS(X)
+#undef X
 	}
 }
 

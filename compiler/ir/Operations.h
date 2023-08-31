@@ -5,6 +5,8 @@
 
 #include "meta/Operation.h"
 
+#include "concept/Binary.h"
+
 #include "compiler/ast/Class.h"
 #include "compiler/ast/Field.h"
 #include "compiler/ast/Function.h"
@@ -90,21 +92,9 @@ struct Binary: OperationBase<Binary>
 {
 	enum class Op
 	{
-		AddI,
-		MulI,
-		SubI,
-		DivI,
-		Mod,
-		ShlI,
-		ShrI,
-		ShrU,
-		AndI,
-		OrI,
-		XorI,
-		AddF,
-		MulF,
-		SubF,
-		DivF
+#define X(n, ...) n,
+		_ARITHMETIC_OPERATORS(X)
+#undef X
 	};
 
 	const std::shared_ptr<Temporary> target, first, second;

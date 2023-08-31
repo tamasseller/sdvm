@@ -1,7 +1,8 @@
 #ifndef INSTRUCTION_H_
 #define INSTRUCTION_H_
 
-#include <cstdint>
+#include "concept/Binary.h"
+
 #include <cstddef>
 
 namespace prog {
@@ -13,57 +14,57 @@ namespace prog {
 #define FMT4(n) static constexpr inline Instruction n(uint32_t imm)                 { return {Operation:: n, imm}; }
 #define FMT5(n) static constexpr inline Instruction n(uint32_t immM, uint32_t immN) { return {Operation:: n, immM, immN}; }
 
-#define OPERATION_LIST() \
-	X(lit, FMT0) \
-	X(make, FMT0) \
-	X(jNul, FMT0) \
-	X(jNnl, FMT0) \
-	X(movr, FMT1) \
-	X(mov, FMT1) \
-	X(neg, FMT1) \
-	X(i2f, FMT1) \
-	X(f2i, FMT1) \
-	/*X(x1i, FMT1)*/ \
-	/*X(x1u, FMT1)*/ \
-	/*X(x2i, FMT1)*/ \
-	/*X(x2u, FMT1)*/ \
-	X(getr, FMT2) \
-	X(putr, FMT2) \
-	X(gets, FMT2) \
-	X(puts, FMT2) \
-	X(jEq, FMT2) \
-	X(jNe, FMT2) \
-	X(jLtI, FMT2) \
-	X(jGtI, FMT2) \
-	X(jLeI, FMT2) \
-	X(jGeI, FMT2) \
-	X(jLtU, FMT2) \
-	X(jGtU, FMT2) \
-	X(jLeU, FMT2) \
-	X(jGeU, FMT2) \
-	X(jLtF, FMT2) \
-	X(jGtF, FMT2) \
-	X(jLeF, FMT2) \
-	X(jGeF, FMT2) \
-	X(addI, FMT3) \
-	X(mulI, FMT3) \
-	X(subI, FMT3) \
-	X(divI, FMT3) \
-	X(mod, FMT3) \
-	X(shlI, FMT3) \
-	X(shrI, FMT3) \
-	X(shrU, FMT3) \
-	X(andI, FMT3) \
-	X(orI, FMT3) \
-	X(xorI, FMT3) \
-	X(addF, FMT3) \
-	X(mulF, FMT3) \
-	X(subF, FMT3) \
-	X(divF, FMT3) \
-	X(jump, FMT4) \
-	X(drop, FMT5) \
-	X(call, FMT5) \
-	X(ret, FMT5)
+#define OPERATION_LIST(CONSUMER) \
+	CONSUMER(lit, FMT0) \
+	CONSUMER(make, FMT0) \
+	CONSUMER(jNul, FMT0) \
+	CONSUMER(jNnl, FMT0) \
+	CONSUMER(movr, FMT1) \
+	CONSUMER(mov, FMT1) \
+	CONSUMER(neg, FMT1) \
+	CONSUMER(i2f, FMT1) \
+	CONSUMER(f2i, FMT1) \
+	/*CONSUMER(x1i, FMT1)*/ \
+	/*CONSUMER(x1u, FMT1)*/ \
+	/*CONSUMER(x2i, FMT1)*/ \
+	/*CONSUMER(x2u, FMT1)*/ \
+	CONSUMER(getr, FMT2) \
+	CONSUMER(putr, FMT2) \
+	CONSUMER(gets, FMT2) \
+	CONSUMER(puts, FMT2) \
+	CONSUMER(jEq, FMT2) \
+	CONSUMER(jNe, FMT2) \
+	CONSUMER(jLtI, FMT2) \
+	CONSUMER(jGtI, FMT2) \
+	CONSUMER(jLeI, FMT2) \
+	CONSUMER(jGeI, FMT2) \
+	CONSUMER(jLtU, FMT2) \
+	CONSUMER(jGtU, FMT2) \
+	CONSUMER(jLeU, FMT2) \
+	CONSUMER(jGeU, FMT2) \
+	CONSUMER(jLtF, FMT2) \
+	CONSUMER(jGtF, FMT2) \
+	CONSUMER(jLeF, FMT2) \
+	CONSUMER(jGeF, FMT2) \
+	CONSUMER(addI, FMT3) \
+	CONSUMER(mulI, FMT3) \
+	CONSUMER(subI, FMT3) \
+	CONSUMER(divI, FMT3) \
+	CONSUMER(mod, FMT3) \
+	CONSUMER(shlI, FMT3) \
+	CONSUMER(shrI, FMT3) \
+	CONSUMER(shrU, FMT3) \
+	CONSUMER(andI, FMT3) \
+	CONSUMER(orI, FMT3) \
+	CONSUMER(xorI, FMT3) \
+	CONSUMER(addF, FMT3) \
+	CONSUMER(mulF, FMT3) \
+	CONSUMER(subF, FMT3) \
+	CONSUMER(divF, FMT3) \
+	CONSUMER(jump, FMT4) \
+	CONSUMER(drop, FMT5) \
+	CONSUMER(call, FMT5) \
+	CONSUMER(ret, FMT5)
 
 struct Instruction
 {
@@ -91,7 +92,7 @@ struct Instruction
 	enum class Operation
 	{
 #define X(name, fmt) name,
-		OPERATION_LIST()
+		OPERATION_LIST(X)
 #undef X
 	};
 
@@ -108,7 +109,7 @@ struct Instruction
 	inline constexpr Instruction(Operation op, uint32_t imm, uint32_t imm2): op(op), imm(imm), imm2(imm2) {}
 
 #define X(name, fmt) fmt(name)
-		OPERATION_LIST()
+		OPERATION_LIST(X)
 #undef X
 };
 

@@ -1,5 +1,7 @@
 #include "Function.h"
 
+#include "concept/Binary.h"
+
 #include "compiler/ast/Values.h"
 #include "compiler/ast/Statements.h"
 
@@ -23,55 +25,10 @@ std::string Function::getReferenceForDump(const ProgramObjectSet& gi) const {
 }
 const auto nIndentSpaces = 4;
 
-enum class OpPrecedence: uint8_t
-{
-	CastCallMember,
-	Unary,
-	MultiplicativeBinary,
-	AdditiveBinary,
-	Shift,
-	Relational,
-	Equality,
-	BitAnd,
-	BitXor,
-	BitOr,
-	LogicAnd,
-	LogicOr,
-	Root
-};
-
 static inline const std::map<Binary::Operation, std::pair<std::string, OpPrecedence>> binaryOps = {
-	{Binary::Operation::AddI, {"+",  OpPrecedence::AdditiveBinary}},
-	{Binary::Operation::MulI, {"*",  OpPrecedence::MultiplicativeBinary}},
-	{Binary::Operation::SubI, {"-",  OpPrecedence::AdditiveBinary}},
-	{Binary::Operation::DivI, {"/",  OpPrecedence::MultiplicativeBinary}},
-	{Binary::Operation::Mod,  {"%",  OpPrecedence::MultiplicativeBinary}},
-	{Binary::Operation::ShlI, {"<<", OpPrecedence::Shift}},
-	{Binary::Operation::ShrI, {">>", OpPrecedence::Shift}},
-	{Binary::Operation::ShrU, {">>", OpPrecedence::Shift}},
-	{Binary::Operation::AndI, {"&",  OpPrecedence::BitAnd}},
-	{Binary::Operation::OrI,  {"|",  OpPrecedence::BitOr}},
-	{Binary::Operation::XorI, {"^",  OpPrecedence::BitXor}},
-	{Binary::Operation::AddF, {"+",  OpPrecedence::AdditiveBinary}},
-	{Binary::Operation::MulF, {"*",  OpPrecedence::MultiplicativeBinary}},
-	{Binary::Operation::SubF, {"-",  OpPrecedence::AdditiveBinary}},
-	{Binary::Operation::DivF, {"/",  OpPrecedence::MultiplicativeBinary}},
-	{Binary::Operation::Eq,   {"==", OpPrecedence::Equality}},
-	{Binary::Operation::Ne,   {"!=", OpPrecedence::Equality}},
-	{Binary::Operation::LtI,  {"<",  OpPrecedence::Relational}},
-	{Binary::Operation::GtI,  {">",  OpPrecedence::Relational}},
-	{Binary::Operation::LeI,  {"<=", OpPrecedence::Relational}},
-	{Binary::Operation::GeI,  {">=", OpPrecedence::Relational}},
-	{Binary::Operation::LtU,  {"<",  OpPrecedence::Relational}},
-	{Binary::Operation::GtU,  {">",  OpPrecedence::Relational}},
-	{Binary::Operation::LeU,  {"<=", OpPrecedence::Relational}},
-	{Binary::Operation::GeU,  {">=", OpPrecedence::Relational}},
-	{Binary::Operation::LtF,  {"<",  OpPrecedence::Relational}},
-	{Binary::Operation::GtF,  {">",  OpPrecedence::Relational}},
-	{Binary::Operation::LeF,  {"<=", OpPrecedence::Relational}},
-	{Binary::Operation::GeF,  {">=", OpPrecedence::Relational}},
-	{Binary::Operation::And,  {"&&", OpPrecedence::LogicAnd}},
-	{Binary::Operation::Or,   {"||", OpPrecedence::LogicOr}}
+#define X(n, s, p) {Binary::Operation:: n, {s,  p}},
+		_BINARY_OPERATORS(X)
+#undef X
 };
 
 static inline const std::map<Unary::Operation, std::string> unaryOps = {

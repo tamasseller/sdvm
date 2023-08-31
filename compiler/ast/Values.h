@@ -3,6 +3,8 @@
 
 #include "meta/Value.h"
 
+#include "concept/Binary.h"
+
 #include "Field.h"
 #include "Function.h"
 
@@ -112,37 +114,9 @@ struct Binary: ValueBase<Binary>
 {
 	enum class Operation
 	{
-		AddI,
-		MulI,
-		SubI,
-		DivI,
-		Mod,
-		ShlI,
-		ShrI,
-		ShrU,
-		AndI,
-		OrI,
-		XorI,
-		AddF,
-		MulF,
-		SubF,
-		DivF,
-		Eq,
-		Ne,
-		LtI,
-		GtI,
-		LeI,
-		GeI,
-		LtU,
-		GtU,
-		LeU,
-		GeU,
-		LtF,
-		GtF,
-		LeF,
-		GeF,
-		And,
-		Or
+#define X(n, ...) n,
+		_BINARY_OPERATORS(X)
+#undef X
 	};
 
 	const Operation op;

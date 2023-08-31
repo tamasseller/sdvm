@@ -5,6 +5,8 @@
 
 #include "Overloaded.h"
 
+#include "concept/Binary.h"
+
 #include "assert.h"
 
 #include <sstream>
@@ -23,21 +25,9 @@ static inline const std::map<Unary::Op, std::string> unaryOp =
 
 static inline const std::map<Binary::Op, std::string> binaryOp =
 {
-	{Binary::Op::AddI, "+"},
-	{Binary::Op::MulI, "*"},
-	{Binary::Op::SubI, "-"},
-	{Binary::Op::DivI, "/"},
-	{Binary::Op::Mod,  "%"},
-	{Binary::Op::ShlI, "<<"},
-	{Binary::Op::ShrI, ">>"},
-	{Binary::Op::ShrU, ">>>"},
-	{Binary::Op::AndI, "&"},
-	{Binary::Op::OrI,  "|"},
-	{Binary::Op::XorI, "^"},
-	{Binary::Op::AddF, "+"},
-	{Binary::Op::MulF, "*"},
-	{Binary::Op::SubF, "-"},
-	{Binary::Op::DivF, "/"},
+#define X(n, s, ...) {Binary::Op:: n, s},
+		_ARITHMETIC_OPERATORS(X)
+#undef X
 };
 
 std::string BasicBlock::dump(ast::ProgramObjectSet& gi, DumpContext& dc) const
