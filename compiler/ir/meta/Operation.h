@@ -8,7 +8,6 @@ namespace ir {
 
 #define _OPERATION_TYPES() \
 		X(Copy) \
-		X(Literal) \
 		X(Unary) \
 		X(Create) \
 		X(LoadField) \

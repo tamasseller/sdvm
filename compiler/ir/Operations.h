@@ -17,14 +17,6 @@
 namespace comp {
 namespace ir {
 
-struct Literal: OperationBase<Literal>
-{
-	const std::shared_ptr<Temporary> target;
-	const int integer;
-
-	inline Literal(decltype(target) target, int integer): target(target), integer(integer) {}
-};
-
 struct Unary: OperationBase<Unary>
 {
 	enum class Op
@@ -41,7 +33,7 @@ struct Unary: OperationBase<Unary>
 
 struct Copy: OperationBase<Copy>
 {
-	const std::shared_ptr<Temporary> target, source;
+	const std::shared_ptr<Temporary> target, source;			// TODO make target variable
 
 	inline Copy(decltype(target) target, decltype(source) source): target(target), source(source) {}
 };
@@ -106,7 +98,8 @@ struct Binary: OperationBase<Binary>
 
 struct Call: OperationBase<Call>
 {
-	const std::vector<std::shared_ptr<Temporary>> arg, ret;
+	const std::vector<std::shared_ptr<Temporary>> arg;
+	const std::vector<std::shared_ptr<Variable>> ret;
 	const std::shared_ptr<ast::Function> fn;
 
 	inline Call(decltype(arg) arg, decltype(ret) ret, decltype(fn) fn): arg(arg), ret(ret), fn(fn) {}

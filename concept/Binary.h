@@ -21,41 +21,41 @@ enum class OpPrecedence: uint8_t
 };
 
 #define _ARITHMETIC_OPERATORS(CONSUMER) \
-	CONSUMER (AddI, "+",  OpPrecedence::AdditiveBinary) \
-	CONSUMER (MulI, "*",  OpPrecedence::MultiplicativeBinary) \
-	CONSUMER (SubI, "-",  OpPrecedence::AdditiveBinary) \
-	CONSUMER (DivI, "/",  OpPrecedence::MultiplicativeBinary) \
-	CONSUMER (Mod,  "%",  OpPrecedence::MultiplicativeBinary) \
-	CONSUMER (ShlI, "<<", OpPrecedence::Shift) \
-	CONSUMER (ShrI, ">>", OpPrecedence::Shift) \
-	CONSUMER (ShrU, ">>", OpPrecedence::Shift) \
-	CONSUMER (AndI, "&",  OpPrecedence::BitAnd) \
-	CONSUMER (OrI,  "|",  OpPrecedence::BitOr) \
-	CONSUMER (XorI, "^",  OpPrecedence::BitXor) \
-	CONSUMER (AddF, "+",  OpPrecedence::AdditiveBinary) \
-	CONSUMER (MulF, "*",  OpPrecedence::MultiplicativeBinary) \
-	CONSUMER (SubF, "-",  OpPrecedence::AdditiveBinary) \
-	CONSUMER (DivF, "/",  OpPrecedence::MultiplicativeBinary) \
+	CONSUMER (AddI, "+",  OpPrecedence::AdditiveBinary,       integer) \
+	CONSUMER (MulI, "*",  OpPrecedence::MultiplicativeBinary, integer) \
+	CONSUMER (SubI, "-",  OpPrecedence::AdditiveBinary,       integer) \
+	CONSUMER (DivI, "/",  OpPrecedence::MultiplicativeBinary, integer) \
+	CONSUMER (Mod,  "%",  OpPrecedence::MultiplicativeBinary, integer) \
+	CONSUMER (ShlI, "<<", OpPrecedence::Shift,                integer) \
+	CONSUMER (ShrI, ">>", OpPrecedence::Shift,                integer) \
+	CONSUMER (ShrU, ">>", OpPrecedence::Shift,                integer) \
+	CONSUMER (AndI, "&",  OpPrecedence::BitAnd,               integer) \
+	CONSUMER (OrI,  "|",  OpPrecedence::BitOr,                integer) \
+	CONSUMER (XorI, "^",  OpPrecedence::BitXor,               integer) \
+	CONSUMER (AddF, "+",  OpPrecedence::AdditiveBinary,       floating) \
+	CONSUMER (MulF, "*",  OpPrecedence::MultiplicativeBinary, floating) \
+	CONSUMER (SubF, "-",  OpPrecedence::AdditiveBinary,       floating) \
+	CONSUMER (DivF, "/",  OpPrecedence::MultiplicativeBinary, floating) \
 
 #define _CONDITIONAL_OPERATORS(CONSUMER) \
-	CONSUMER (Eq,   "==", OpPrecedence::Equality) \
-	CONSUMER (Ne,   "!=", OpPrecedence::Equality) \
-	CONSUMER (LtI,  "<",  OpPrecedence::Relational) \
-	CONSUMER (GtI,  ">",  OpPrecedence::Relational) \
-	CONSUMER (LeI,  "<=", OpPrecedence::Relational) \
-	CONSUMER (GeI,  ">=", OpPrecedence::Relational) \
-	CONSUMER (LtU,  "<",  OpPrecedence::Relational) \
-	CONSUMER (GtU,  ">",  OpPrecedence::Relational) \
-	CONSUMER (LeU,  "<=", OpPrecedence::Relational) \
-	CONSUMER (GeU,  ">=", OpPrecedence::Relational) \
-	CONSUMER (LtF,  "<",  OpPrecedence::Relational) \
-	CONSUMER (GtF,  ">",  OpPrecedence::Relational) \
-	CONSUMER (LeF,  "<=", OpPrecedence::Relational) \
-	CONSUMER (GeF,  ">=", OpPrecedence::Relational) \
+	CONSUMER (Eq,   "==", OpPrecedence::Equality,   logical) \
+	CONSUMER (Ne,   "!=", OpPrecedence::Equality,   logical) \
+	CONSUMER (LtI,  "<",  OpPrecedence::Relational, logical) \
+	CONSUMER (GtI,  ">",  OpPrecedence::Relational, logical) \
+	CONSUMER (LeI,  "<=", OpPrecedence::Relational, logical) \
+	CONSUMER (GeI,  ">=", OpPrecedence::Relational, logical) \
+	CONSUMER (LtU,  "<",  OpPrecedence::Relational, logical) \
+	CONSUMER (GtU,  ">",  OpPrecedence::Relational, logical) \
+	CONSUMER (LeU,  "<=", OpPrecedence::Relational, logical) \
+	CONSUMER (GeU,  ">=", OpPrecedence::Relational, logical) \
+	CONSUMER (LtF,  "<",  OpPrecedence::Relational, logical) \
+	CONSUMER (GtF,  ">",  OpPrecedence::Relational, logical) \
+	CONSUMER (LeF,  "<=", OpPrecedence::Relational, logical) \
+	CONSUMER (GeF,  ">=", OpPrecedence::Relational, logical) \
 
 #define _BOOL_PSEUDO_OPERATORS(CONSUMER) \
-	CONSUMER (And,  "&&", OpPrecedence::LogicAnd) \
-	CONSUMER (Or,   "||", OpPrecedence::LogicOr) \
+	CONSUMER (And,  "&&", OpPrecedence::LogicAnd, logical) \
+	CONSUMER (Or,   "||", OpPrecedence::LogicOr,  logical) \
 
 #define _BINARY_OPERATORS(CONSUMER) \
 	_ARITHMETIC_OPERATORS(CONSUMER) \

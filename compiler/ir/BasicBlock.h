@@ -10,6 +10,8 @@
 #include <utility>
 #include <map>
 
+#include "assert.h"
+
 namespace comp {
 namespace ir {
 
@@ -20,13 +22,8 @@ struct BasicBlock
 
 	struct DumpContext
 	{
-		std::map<std::shared_ptr<Temporary>, size_t> ts;
-
-		inline std::string nameOf(const std::shared_ptr<Temporary> &t)
-		{
-			auto it = ts.find(t);
-			return "t" + std::to_string((it != ts.end()) ? it->second : ts.insert({t, ts.size()}).first->second);
-		}
+		std::map<std::shared_ptr<Variable>, size_t> ts;
+		std::string nameOf(const std::shared_ptr<Temporary> &t);
 	};
 
 	std::string dump(ast::ProgramObjectSet& gi, DumpContext& dc) const;

@@ -34,12 +34,25 @@ std::string Compiler::dumpAst()
 	return join(parts);
 }
 
-std::string Compiler::dumpCfg()
+std::string Compiler::dumpCfg(Compiler::Options opt)
 {
 	std::vector<std::string> parts;
 
-	std::transform(gi.classes.begin(), gi.classes.end(), std::back_inserter(parts), [&](const auto &c){return c->dump(gi);});
-	std::transform(gi.functions.begin(), gi.functions.end(), std::back_inserter(parts), [&](const auto &f){return generateIr(f)->dump(gi);});
+	std::transform(gi.functions.begin(), gi.functions.end(), std::back_inserter(parts), [&](const auto &f)
+	{
+		auto ir = generateIr(f);
+
+		bool changed;
+		while(changed)
+		{
+			changed = false;
+
+			if((opt & Options::doJumpOptimizations) && (changed = removeEmptyBasicBlocks(ir))) continue;
+			if((opt & Options::doJumpOptimizations) && (changed = mergeBasicBlocks(ir))) continue;
+		}
+
+		return ir->dump(gi);
+	});
 
 	return join(parts);
 }

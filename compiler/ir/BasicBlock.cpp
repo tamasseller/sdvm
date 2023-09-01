@@ -30,6 +30,32 @@ static inline const std::map<Binary::Op, std::string> binaryOp =
 #undef X
 };
 
+std::string BasicBlock::DumpContext::nameOf(const std::shared_ptr<Temporary> &t)
+{
+	if(t->isConstant())
+	{
+		const auto c = std::dynamic_pointer_cast<Constant>(t);
+
+		assert(t->type.kind == ast::TypeKind::Value);
+
+		switch(t->type.primitiveType)
+		{
+			case ast::PrimitiveType::Integer: return std::to_string(c->value);
+			case ast::PrimitiveType::Floating: return std::to_string(*reinterpret_cast<const float*>(&c->value));
+			case ast::PrimitiveType::Logical: return c->value ? "true" : "false";
+			default: break;
+		}
+	}
+	else
+	{
+		const auto v = std::dynamic_pointer_cast<Variable>(t);
+		const auto it = ts.find(v);
+		return "t" + std::to_string((it != ts.end()) ? it->second : ts.insert({v, ts.size()}).first->second);
+	}
+
+	return "<< native >>";
+}
+
 std::string BasicBlock::dump(ast::ProgramObjectSet& gi, DumpContext& dc) const
 {
 	std::stringstream ss;
@@ -39,7 +65,6 @@ std::string BasicBlock::dump(ast::ProgramObjectSet& gi, DumpContext& dc) const
 		o->accept(overloaded
 		{
 			[&](const Copy& v) {ss << dc.nameOf(v.target) << " ← " << dc.nameOf(v.source);},
-			[&](const Literal& v) {ss << dc.nameOf(v.target) << " ← " << v.integer;},
 			[&](const Unary& v) {ss << dc.nameOf(v.target) << " ← " << unaryOp.find(v.op)->second << dc.nameOf(v.source);},
 			[&](const Create& v) {ss << dc.nameOf(v.target) << " ← new " << v.type->getReferenceForDump(gi);},
 			[&](const LoadField& v) {ss << dc.nameOf(v.target) << " ← " << dc.nameOf(v.object) << "." << v.field.getReferenceForDump(gi);},

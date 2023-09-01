@@ -26,7 +26,7 @@ std::string Function::getReferenceForDump(const ProgramObjectSet& gi) const {
 const auto nIndentSpaces = 4;
 
 static inline const std::map<Binary::Operation, std::pair<std::string, OpPrecedence>> binaryOps = {
-#define X(n, s, p) {Binary::Operation:: n, {s,  p}},
+#define X(n, s, p, ...) {Binary::Operation:: n, {s,  p}},
 		_BINARY_OPERATORS(X)
 #undef X
 };

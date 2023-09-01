@@ -94,7 +94,15 @@ std::string ir::Function::dump(ast::ProgramObjectSet& gi) const
 			},
 			[&](const Leave& v)
 			{
-				ss << "\t" << idx << " -> exit" << "[label=\"" << "\"]"<< std::endl;
+				ss << "\t" << idx << " -> exit";
+
+				if(v.ret.size())
+				{
+					assert(v.ret.size() == 1);
+					ss << "[label=\"return " << dc.nameOf(v.ret[0]) << "\"]";
+				}
+
+				ss << std::endl;
 			},
 		});
 	});

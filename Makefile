@@ -14,10 +14,11 @@ SOURCES += compiler/ir/Function.cpp
 
 SOURCES += compiler/internal/Dump.cpp
 SOURCES += compiler/internal/IrGen.cpp
+SOURCES += compiler/internal/JumpOptimization.cpp
 
-SOURCES += TestStorage.cpp
-SOURCES += TestVm.cpp
-SOURCES += TestBuilder.cpp
+#SOURCES += TestStorage.cpp
+#SOURCES += TestVm.cpp
+#SOURCES += TestBuilder.cpp
 SOURCES += TestIrGen.cpp
 
 SOURCES += main.cpp

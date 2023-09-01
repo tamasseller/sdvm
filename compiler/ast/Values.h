@@ -77,7 +77,7 @@ struct Literal: ValueBase<Literal>
 	inline Literal(float floating): type(ValueType::floating()), floating(floating) {}
 	inline Literal(bool logical): type(ValueType::logical()), logical(logical) {}
 
-	inline virtual ValueType getType() const override { return type; }
+	inline virtual ValueType getType() const override { return type; }   // TODO remove (use type directly instead)
 };
 
 struct Unary: ValueBase<Unary>
@@ -128,40 +128,9 @@ struct Binary: ValueBase<Binary>
 	{
 		switch(op)
 		{
-			case Operation::AddI:
-			case Operation::MulI:
-			case Operation::SubI:
-			case Operation::DivI:
-			case Operation::Mod:
-			case Operation::ShlI:
-			case Operation::ShrI:
-			case Operation::ShrU:
-			case Operation::AndI:
-			case Operation::OrI:
-			case Operation::XorI:
-				return ValueType::integer();
-			case Operation::AddF:
-			case Operation::MulF:
-			case Operation::SubF:
-			case Operation::DivF:
-				return ValueType::floating();
-			case Operation::Eq:
-			case Operation::Ne:
-			case Operation::LtI:
-			case Operation::GtI:
-			case Operation::LeI:
-			case Operation::GeI:
-			case Operation::LtU:
-			case Operation::GtU:
-			case Operation::LeU:
-			case Operation::GeU:
-			case Operation::LtF:
-			case Operation::GtF:
-			case Operation::LeF:
-			case Operation::GeF:
-			case Operation::And:
-			case Operation::Or:
-				return ValueType::logical();
+#define X(n, s, p, t) case Operation:: n : return ValueType:: t ();
+		_BINARY_OPERATORS(X)
+#undef X
 		}
 
 		return ValueType::native();

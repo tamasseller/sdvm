@@ -38,18 +38,18 @@ private:
 	}
 
 	static inline void join(std::shared_ptr<BasicBlock> from, std::shared_ptr<BasicBlock> to) {
-		from->termination = std::make_shared<Always>(to, from);
+		from->termination = std::make_shared<Always>(to);
 	}
 
 	static inline void join(std::shared_ptr<BasicBlock> from, Conditional::Condition condition,
 			std::shared_ptr<Temporary> first, std::shared_ptr<Temporary> second,
 			std::shared_ptr<BasicBlock> then, std::shared_ptr<BasicBlock> otherwise)
 	{
-		from->termination = std::make_shared<Conditional>(condition, first, second, then, otherwise, from);
+		from->termination = std::make_shared<Conditional>(condition, first, second, then, otherwise);
 	}
 
 	static inline void join(std::shared_ptr<BasicBlock> from, std::vector<std::shared_ptr<Temporary>> retvals) {
-		from->termination = std::make_shared<Leave>(retvals, from);
+		from->termination = std::make_shared<Leave>(retvals);
 	}
 
 public:
@@ -57,22 +57,33 @@ public:
 		last->code.push_back(stmt);
 	}
 
+	void addLiteral(std::shared_ptr<Variable> target, int v)
+	{
+		last->code.push_back(std::make_shared<Copy>(target, std::make_shared<Constant>(target->type, v)));
+	}
+
 	template<class C>
 	auto genOp(ast::ValueType t, C&& c)
 	{
-		auto ret = std::make_shared<Temporary>(t);
+		auto ret = std::make_shared<Variable>(t);
 		last->code.push_back(c(ret));
 		return ret;
 	}
 
-	std::shared_ptr<Temporary> condToBool(Conditional::Condition condition, std::shared_ptr<Temporary> first, std::shared_ptr<Temporary> second)
+	auto genLiteral(ast::ValueType t, int v) {
+		return genOp(t, [&](const auto &r){
+			return std::make_shared<Copy>(r, std::make_shared<Constant>(t, v));
+		});
+	}
+
+	std::shared_ptr<Variable> condToBool(Conditional::Condition condition, std::shared_ptr<Temporary> first, std::shared_ptr<Temporary> second)
 	{
-		auto ret = std::make_shared<Temporary>(ast::ValueType::logical());
+		auto ret = std::make_shared<Variable>(ast::ValueType::logical());
 
 		auto ifThenPoint = cut();
-		addOp(std::make_shared<Literal>(ret, 1));
+		addOp(std::make_shared<Copy>(ret, std::make_shared<Constant>(ast::ValueType::logical(), 1)));
 		auto thenElsePoint = cut();
-		addOp(std::make_shared<Literal>(ret, 0));
+		addOp(std::make_shared<Copy>(ret, std::make_shared<Constant>(ast::ValueType::logical(), 0)));
 		auto endifPoint = cut();
 
 		join(ifThenPoint.first, condition, first, second, ifThenPoint.second, thenElsePoint.second);
@@ -83,17 +94,15 @@ public:
 	}
 
 	template<class T, class O>
-	void branch(std::shared_ptr<Temporary> decisionInput, T&& then, O&& otherwise)
+	void branch(std::shared_ptr<Variable> decisionInput, T&& then, O&& otherwise)
 	{
-		auto tru = genOp(ast::ValueType::logical(), [&](auto t){ return std::make_shared<Literal>(t, 1); });
-
 		auto ifThenPoint = cut();
 		then();
 		auto thenElsePoint = cut();
 		otherwise();
 		auto endifPoint = cut();
 
-		join(ifThenPoint.first, Conditional::Condition::Eq, decisionInput, tru, ifThenPoint.second, thenElsePoint.second);
+		join(ifThenPoint.first, Conditional::Condition::Eq, decisionInput, std::make_shared<Constant>(ast::ValueType::logical(), 1), ifThenPoint.second, thenElsePoint.second);
 		join(thenElsePoint.first, endifPoint.second);
 		join(endifPoint.first, endifPoint.second);
 	}

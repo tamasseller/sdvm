@@ -45,36 +45,36 @@ inline auto mapConditionalOp(ast::Binary::Operation op)
 
 struct Context: IrBuilder
 {
-	std::map<std::shared_ptr<const ast::Local>, std::shared_ptr<Temporary>> locals;
-	std::vector<std::shared_ptr<Temporary>> args;
+	std::map<std::shared_ptr<const ast::Local>, std::shared_ptr<Variable>> locals;
+	std::vector<std::shared_ptr<Variable>> args;
 
 	Context(std::vector<ast::ValueType> argTypes)
 	{
-		std::transform(argTypes.begin(), argTypes.end(), std::back_inserter(args), [&](auto& t){ return std::make_shared<Temporary>(t); });
+		std::transform(argTypes.begin(), argTypes.end(), std::back_inserter(args), [&](auto& t){ return std::make_shared<Variable>(t); });
 	}
 
-	void addLocal(std::shared_ptr<const ast::Local> local, std::shared_ptr<Temporary> t)
+	void addLocal(std::shared_ptr<const ast::Local> local, std::shared_ptr<Variable> t)
 	{
 		const bool inserted = locals.insert({local, t}).second;
 		assert(inserted);
 	}
 
-	std::shared_ptr<Temporary> getLocal(std::shared_ptr<const ast::Local> local)
+	std::shared_ptr<Variable> getLocal(std::shared_ptr<const ast::Local> local)
 	{
 		const auto it = locals.find(local);
 		assert(it != locals.end());
 		return it->second;
 	}
 
-	std::shared_ptr<Temporary> arg(size_t idx)
+	std::shared_ptr<Variable> arg(size_t idx)
 	{
 		assert(idx < args.size());
 		return args[idx];
 	}
 
-	inline std::shared_ptr<Temporary> operator()(std::shared_ptr<const ast::RValue> val)
+	inline std::shared_ptr<Variable> operator()(std::shared_ptr<const ast::RValue> val)
 	{
-		std::shared_ptr<Temporary> ret;
+		std::shared_ptr<Variable> ret;
 
 		val->accept(overloaded
 		{
@@ -82,7 +82,7 @@ struct Context: IrBuilder
 			[&](const ast::Global& v) { ret = genOp(v.getType(), [&](auto t){ return std::make_shared<LoadGlobal>(t, v.field); }); },
 			[&](const ast::Argument& v) { ret = arg(v.idx); },
 			[&](const ast::Create& v) { ret = genOp(v.getType(), [&](auto t){ return std::make_shared<Create>(t, v.type); }); },
-			[&](const ast::Literal& v) { ret = genOp(v.getType(), [&](auto t){ return std::make_shared<Literal>(t, v.integer); }); },
+			[&](const ast::Literal& v) { ret = genLiteral(v.getType(), v.integer); },
 			[&](const ast::Dereference& v)
 			{
 				const auto in = (*this)(v.object);
@@ -93,10 +93,10 @@ struct Context: IrBuilder
 				switch(v.op)
 				{
 					case ast::Unary::Operation::Not:
-						ret = std::make_shared<Temporary>(v.getType());
+						ret = std::make_shared<Variable>(ast::ValueType::logical());
 						branch((*this)(v.arg),
-								[&](){ addOp(std::make_shared<Literal>(ret, 1)); },
-								[&](){ addOp(std::make_shared<Literal>(ret, 0)); });
+								[&](){ addLiteral(ret, 0); },
+								[&](){ addLiteral(ret, 1); });
 
 						break;
 					default:
@@ -127,19 +127,23 @@ struct Context: IrBuilder
 						ret = condToBool(mapConditionalOp(v.op), (*this)(v.first), (*this)(v.second));
 						break;
 					case ast::Binary::Operation::And:
-						ret = std::make_shared<Temporary>(ast::ValueType::logical());
+					{
+						ret = std::make_shared<Variable>(ast::ValueType::logical());
 						branch((*this)(v.first),
 								[&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.second))); },
-								[&](){ addOp(std::make_shared<Literal>(ret, 0)); });
+								[&](){ addLiteral(ret, 0); });
 
 						break;
+					}
 					case ast::Binary::Operation::Or:
-						ret = std::make_shared<Temporary>(ast::ValueType::logical());
+					{
+						ret = std::make_shared<Variable>(ast::ValueType::logical());
 						branch((*this)(v.first),
-								[&](){ addOp(std::make_shared<Literal>(ret, 1)); },
+								[&](){ addLiteral(ret, 1); },
 								[&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.second))); });
 
 						break;
+					}
 					default:
 					{
 						const auto firstIn = (*this)(v.first);
@@ -166,9 +170,11 @@ struct Context: IrBuilder
 			},
 			[&](const ast::Call& v)
 			{
-				std::vector<std::shared_ptr<Temporary>> args, out;
+				std::vector<std::shared_ptr<Temporary>> args;
 				std::transform(v.args.begin(), v.args.end(), std::back_inserter(args), [&](const auto& v){ return (*this)(v); });
-				std::transform(v.fn->ret.begin(), v.fn->ret.end(), std::back_inserter(out), [&](const auto& v){ return std::make_shared<Temporary>(v); });
+
+				std::vector<std::shared_ptr<Variable>> out;
+				std::transform(v.fn->ret.begin(), v.fn->ret.end(), std::back_inserter(out), [&](const auto& v){ return std::make_shared<Variable>(v); });
 
 				addOp(std::make_shared<Call>(args, out, v.fn));
 
@@ -180,7 +186,7 @@ struct Context: IrBuilder
 			},
 			[&](const ast::Ternary& v)
 			{
-				ret = std::make_shared<Temporary>(v.getType());
+				ret = std::make_shared<Variable>(v.getType());
 				branch((*this)(v.condition),
 						[&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.then))); },
 						[&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.otherwise))); });

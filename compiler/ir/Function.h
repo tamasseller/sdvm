@@ -12,7 +12,7 @@ namespace ir {
 
 struct Function
 {
-	std::vector<std::shared_ptr<Temporary>> args;
+	std::vector<std::shared_ptr<Variable>> args;
 	std::shared_ptr<BasicBlock> entry;
 
 	inline Function(decltype(args) args, decltype(entry) entry): args(args), entry(entry) {}
