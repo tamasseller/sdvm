@@ -141,7 +141,7 @@ public:
 	void breakLoop(const void* loopIdentity)
 	{
 		auto it = loops.find(loopIdentity);
-		assert(it != loops.end()); // TODO compiler error: continue outside loop
+		assert(it != loops.end()); // TODO compiler error: break outside loop
 
 		auto cutPoint = cut();
 		it->second.endConsumers.push_back([first{cutPoint.first}](auto end){

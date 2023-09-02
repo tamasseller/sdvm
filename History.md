@@ -24,7 +24,7 @@ design forces
  - no space for JIT
 
 3. limited code space 
- - simple interpreter 
+ - small, simple runtime
  - compact program representation
 
 PROTOTYPING
@@ -34,7 +34,7 @@ throwaway demonstrator
 ----------------------
 
  - purpose: to make design choices
- - has similar structure as the actual thing but uses every possible shortcut 
+ - has similar structure to the actual thing but uses every possible shortcut 
  - incrementaly becomes more and more complete and similar to the real deal
  - generator <-> decoder <-> executor <-> object storage separation to enable independent experiments
 
@@ -71,5 +71,21 @@ implementation notes
                         \-> debug info -> debugger -/
  - multiple transformation steps with gradual desugaring -> information filtering, extraction and structuring
  - strategy: first build all layers with minimal functionality and test thoroughly, then add the more complicated features
- - initially a simplified skeleton (no exceptions, no arrays, no virtual calls, no non-32bit types, no debug info)
+ - initially a simplified skeleton (no exceptions, no arrays, no virtual calls, no non-32bit types, no debug info, no optimization)
  - bottom-up then top-down iterations until they converge
+ - go only up and down so far as it is needed for the experiment
+ - cleanliness over efficiency
+ 
+experience
+----------
+
+ - the interpreter itself is easy
+ - implementing proper bytecode encoding can be postponed
+ - compiler does many things so it can not be simplified to triviality, because
+   - the input (source) and output (bytecode) are very different by nature
+   - it practically must be separated into a series of conversions (e.g. source -> AST -> IR -> bytecode)
+   - if conversions are kept reasonably generic and simple, they tend to introduce additional junk in their outputs.
+   - intra-layer transformation steps ("optimizations") can eliminate some of the inefficiency intrduced by the simplistic intermediate converters.
+   - at least the most common optimization techniques must be applied in order to get a reasonably clean output in a systematic manner.
+   - even though the main purpose is to iron out issues of intermediate conversions, these extra steps also improve badly written programs somewhat.
+   

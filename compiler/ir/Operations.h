@@ -33,14 +33,15 @@ struct Unary: OperationBase<Unary>
 
 struct Copy: OperationBase<Copy>
 {
-	const std::shared_ptr<Temporary> target, source;			// TODO make target variable
+	const std::shared_ptr<Variable> target;
+	const std::shared_ptr<Temporary> source;
 
 	inline Copy(decltype(target) target, decltype(source) source): target(target), source(source) {}
 };
 
 struct Create: OperationBase<Create>
 {
-	const std::shared_ptr<Temporary> target;
+	const std::shared_ptr<Variable> target;
 	const std::shared_ptr<ast::Class> type;
 
 	inline Create(decltype(target) target, decltype(type) type): target(target), type(type) {}
@@ -48,7 +49,8 @@ struct Create: OperationBase<Create>
 
 struct LoadField: OperationBase<LoadField>
 {
-	const std::shared_ptr<Temporary> target, object;
+	const std::shared_ptr<Variable> target;
+	const std::shared_ptr<Temporary> object;
 	const ast::Field field;
 
 	inline LoadField(decltype(target) target, decltype(object) object, decltype(field) field):
@@ -57,7 +59,7 @@ struct LoadField: OperationBase<LoadField>
 
 struct StoreField: OperationBase<StoreField>
 {
-	const std::shared_ptr<Temporary> source, object;
+	const std::shared_ptr<Variable> source, object;
 	const ast::Field field;
 
 	inline StoreField(decltype(source) source, decltype(object) object, decltype(field) field):
@@ -66,7 +68,7 @@ struct StoreField: OperationBase<StoreField>
 
 struct LoadGlobal: OperationBase<LoadGlobal>
 {
-	const std::shared_ptr<Temporary> target;
+	const std::shared_ptr<Variable> target;
 	const ast::Field field;
 
 	inline LoadGlobal(decltype(target) target, decltype(field) field): target(target), field(field) {}
@@ -74,7 +76,7 @@ struct LoadGlobal: OperationBase<LoadGlobal>
 
 struct StoreGlobal: OperationBase<StoreGlobal>
 {
-	const std::shared_ptr<Temporary> source;
+	const std::shared_ptr<Variable> source;
 	const ast::Field field;
 
 	inline StoreGlobal(decltype(source) source, decltype(field) field): source(source), field(field) {}
@@ -89,7 +91,8 @@ struct Binary: OperationBase<Binary>
 #undef X
 	};
 
-	const std::shared_ptr<Temporary> target, first, second;
+	const std::shared_ptr<Variable> target;
+	const std::shared_ptr<Temporary> first, second;
 	const Op op;
 
 	inline Binary(decltype(target) target, decltype(first) first, decltype(second) second, decltype(op) op):

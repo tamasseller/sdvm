@@ -77,15 +77,14 @@ struct Literal: ValueBase<Literal>
 	inline Literal(float floating): type(ValueType::floating()), floating(floating) {}
 	inline Literal(bool logical): type(ValueType::logical()), logical(logical) {}
 
-	inline virtual ValueType getType() const override { return type; }   // TODO remove (use type directly instead)
+	inline virtual ValueType getType() const override { return type; }
 };
 
 struct Unary: ValueBase<Unary>
 {
 	enum class Operation
 	{
-		Neg, I2F, F2I,
-		Not // TODO eliminate
+		Neg, I2F, F2I, Not
 	};
 
 	const Operation op;
