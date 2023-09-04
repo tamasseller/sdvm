@@ -1,6 +1,10 @@
 #ifndef COMPILER_IR_META_OPERATION_H_
 #define COMPILER_IR_META_OPERATION_H_
 
+#include "compiler/common/meta/Annotation.h"
+
+#include <memory>
+#include <vector>
 #include <utility>
 
 namespace comp {
@@ -45,6 +49,8 @@ _OPERATION_TYPES()
 
 struct Operation
 {
+	std::vector<std::shared_ptr<Annotation>> annotations;
+
 	virtual void accept(const OperationVisitor& v) const = 0;
 
 	template<class C>

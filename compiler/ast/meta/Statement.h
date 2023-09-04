@@ -1,8 +1,7 @@
 #ifndef COMPILER_MODEL_STATEMENT_H_
 #define COMPILER_MODEL_STATEMENT_H_
 
-#include <vector>
-#include <memory>
+#include <utility>
 
 namespace comp {
 namespace ast {

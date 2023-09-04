@@ -41,15 +41,7 @@ std::string Compiler::dumpCfg(Compiler::Options opt)
 	std::transform(gi.functions.begin(), gi.functions.end(), std::back_inserter(parts), [&](const auto &f)
 	{
 		auto ir = generateIr(f);
-
-		bool changed;
-		while(changed)
-		{
-			changed = false;
-
-			if((opt & Options::doJumpOptimizations) && (changed = removeEmptyBasicBlocks(ir))) continue;
-			if((opt & Options::doJumpOptimizations) && (changed = mergeBasicBlocks(ir))) continue;
-		}
+		optimizeIr(ir, opt);
 
 		return ir->dump(gi);
 	});

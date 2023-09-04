@@ -1,8 +1,11 @@
 #ifndef COMPILER_TAC_CFG_BASICBLOCK_H_
 #define COMPILER_TAC_CFG_BASICBLOCK_H_
 
+#include "compiler/common/meta/Annotation.h"
+
 #include "meta/Operation.h"
 #include "meta/Termination.h"
+
 #include "Temporary.h"
 
 #include <memory>
@@ -19,6 +22,7 @@ struct BasicBlock
 {
 	std::vector<std::shared_ptr<Operation>> code;
 	std::shared_ptr<Termination> termination;
+	std::vector<std::shared_ptr<Annotation>> annotations;
 
 	struct DumpContext
 	{

@@ -5,6 +5,8 @@
 
 #include "Overloaded.h"
 
+#include "compiler/common/Annotations.h"
+
 #include "concept/Binary.h"
 
 #include "assert.h"
@@ -60,7 +62,7 @@ std::string BasicBlock::dump(ast::ProgramObjectSet& gi, DumpContext& dc) const
 {
 	std::stringstream ss;
 
-	for(const auto &o: code)
+	for(const std::shared_ptr<Operation> &o: code)
 	{
 		o->accept(overloaded
 		{
@@ -90,7 +92,25 @@ std::string BasicBlock::dump(ast::ProgramObjectSet& gi, DumpContext& dc) const
 			}
 		});
 
+		for(const std::shared_ptr<Annotation> &a: o->annotations)
+		{
+			a->accept(overloaded{
+				[&](const IrComment& v) {
+					ss << " /* " << v.genText(dc) << " */";
+				}
+			});
+		}
+
 		ss << "\\n";
+	}
+
+	for(const std::shared_ptr<Annotation> &a: annotations)
+	{
+		a->accept(overloaded{
+			[&](const IrComment& v) {
+				ss << "/* " << v.genText(dc) << " */\\n";
+			}
+		});
 	}
 
 	const auto ret = ss.str();

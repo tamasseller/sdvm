@@ -4,6 +4,8 @@
 #include "meta/Value.h"
 #include "meta/Statement.h"
 
+#include <vector>
+
 namespace comp {
 namespace ast {
 
