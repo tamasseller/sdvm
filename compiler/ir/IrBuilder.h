@@ -37,8 +37,8 @@ private:
 		return {old, last};
 	}
 
-	static inline void join(std::shared_ptr<BasicBlock> from, std::shared_ptr<BasicBlock> to) {
-		from->termination = std::make_shared<Always>(to);
+	static inline void join(std::shared_ptr<BasicBlock> from, std::shared_ptr<BasicBlock> to, bool isBackEdge = false) {
+		from->termination = std::make_shared<Always>(to, isBackEdge);
 	}
 
 	static inline void join(std::shared_ptr<BasicBlock> from, Conditional::Condition condition,
@@ -119,7 +119,7 @@ public:
 		c();
 
 		auto endPoint = cut();
-		join(endPoint.first, startPoint.second);
+		join(endPoint.first, startPoint.second, true);
 
 		for(const auto& cb: l.first->second.endConsumers)
 		{
@@ -135,7 +135,7 @@ public:
 		assert(it != loops.end()); // TODO compiler error: continue outside loop
 
 		auto cutPoint = cut();
-		join(cutPoint.first, it->second.start);
+		join(cutPoint.first, it->second.start, true);
 	}
 
 	void breakLoop(const void* loopIdentity)

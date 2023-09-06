@@ -12,21 +12,6 @@
 using namespace comp;
 using namespace comp::ir;
 
-static inline bool canReach(std::shared_ptr<BasicBlock> start, std::shared_ptr<BasicBlock> destination)
-{
-	bool ret = false;
-
-	BasicBlock::traverse(start, [&](const std::shared_ptr<BasicBlock> &bb)
-	{
-		if(bb == destination)
-		{
-			ret = true;
-		}
-	});
-
-	return ret;
-}
-
 bool Compiler::removeEmptyBasicBlocks(std::shared_ptr<Function> f)
 {
 	bool ret = false;
@@ -38,7 +23,7 @@ bool Compiler::removeEmptyBasicBlocks(std::shared_ptr<Function> f)
 			[&](const Leave&){},
 			[&](const Always &t)
 			{
-				if(t.continuation->code.empty())
+				if(t.continuation->code.empty() && !t.isBackEdge)
 				{
 					bb->termination = t.continuation->termination;
 					ret = true;
@@ -46,12 +31,12 @@ bool Compiler::removeEmptyBasicBlocks(std::shared_ptr<Function> f)
 			},
 			[&](const Conditional& t)
 			{
-				if(auto a = std::dynamic_pointer_cast<Always>(t.then->termination); a && t.then->code.empty() && !canReach(a->continuation, bb))
+				if(auto a = std::dynamic_pointer_cast<Always>(t.then->termination); a && !a->isBackEdge && t.then->code.empty())
 				{
 					bb->termination = std::make_shared<Conditional>(t.condition, t.first, t.second, a->continuation, t.otherwise);
 					ret = true;
 				}
-				else if(auto a = std::dynamic_pointer_cast<Always>(t.otherwise->termination); a && t.otherwise->code.empty() && !canReach(a->continuation, bb))
+				else if(auto a = std::dynamic_pointer_cast<Always>(t.otherwise->termination); a && !a->isBackEdge && t.otherwise->code.empty())
 				{
 					bb->termination = std::make_shared<Conditional>(t.condition, t.first, t.second, t.then, a->continuation);
 					ret = true;

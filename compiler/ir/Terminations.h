@@ -16,8 +16,9 @@ class BasicBlock;
 struct Always: TerminationBase<Always>
 {
 	const std::shared_ptr<BasicBlock> continuation;
+	const bool isBackEdge;
 
-	inline Always(decltype(continuation) continuation): continuation(continuation) {}
+	inline Always(decltype(continuation) continuation, bool isBackEdge = false): continuation(continuation), isBackEdge(isBackEdge) {}
 };
 
 struct Conditional: TerminationBase<Conditional>
