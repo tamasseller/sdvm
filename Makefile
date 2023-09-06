@@ -17,6 +17,7 @@ SOURCES += compiler/internal/IrGen.cpp
 SOURCES += compiler/internal/OptimizeIr.cpp
 SOURCES += compiler/internal/JumpOptimization.cpp
 SOURCES += compiler/internal/ConstantPropagation.cpp
+SOURCES += compiler/internal/DeadCodeElimination.cpp
 
 #SOURCES += TestStorage.cpp
 #SOURCES += TestVm.cpp

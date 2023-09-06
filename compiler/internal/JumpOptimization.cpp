@@ -10,18 +10,33 @@
 #include <algorithm>
 
 using namespace comp;
-using namespace comp::ast;
+using namespace comp::ir;
 
-bool Compiler::removeEmptyBasicBlocks(std::shared_ptr<ir::Function> f)
+static inline bool canReach(std::shared_ptr<BasicBlock> start, std::shared_ptr<BasicBlock> destination)
 {
 	bool ret = false;
 
-	f->traverse([&](std::shared_ptr<ir::BasicBlock> bb)
+	BasicBlock::traverse(start, [&](const std::shared_ptr<BasicBlock> &bb)
+	{
+		if(bb == destination)
+		{
+			ret = true;
+		}
+	});
+
+	return ret;
+}
+
+bool Compiler::removeEmptyBasicBlocks(std::shared_ptr<Function> f)
+{
+	bool ret = false;
+
+	f->traverse([&](std::shared_ptr<BasicBlock> bb)
 	{
 		bb->termination->accept(overloaded
 		{
-			[&](const ir::Leave&){},
-			[&](const ir::Always &t)
+			[&](const Leave&){},
+			[&](const Always &t)
 			{
 				if(t.continuation->code.empty())
 				{
@@ -29,17 +44,16 @@ bool Compiler::removeEmptyBasicBlocks(std::shared_ptr<ir::Function> f)
 					ret = true;
 				}
 			},
-			[&](const ir::Conditional& t)
+			[&](const Conditional& t)
 			{
-				if(auto a = std::dynamic_pointer_cast<ir::Always>(t.then->termination); a && t.then->code.empty())
+				if(auto a = std::dynamic_pointer_cast<Always>(t.then->termination); a && t.then->code.empty() && !canReach(a->continuation, bb))
 				{
-					bb->termination = std::make_shared<ir::Conditional>(t.condition, t.first, t.second, a->continuation, t.otherwise);
+					bb->termination = std::make_shared<Conditional>(t.condition, t.first, t.second, a->continuation, t.otherwise);
 					ret = true;
 				}
-
-				if(auto a = std::dynamic_pointer_cast<ir::Always>(t.otherwise->termination); a && t.otherwise->code.empty())
+				else if(auto a = std::dynamic_pointer_cast<Always>(t.otherwise->termination); a && t.otherwise->code.empty() && !canReach(a->continuation, bb))
 				{
-					bb->termination = std::make_shared<ir::Conditional>(t.condition, t.first, t.second, t.then, a->continuation);
+					bb->termination = std::make_shared<Conditional>(t.condition, t.first, t.second, t.then, a->continuation);
 					ret = true;
 				}
 			},
@@ -49,11 +63,11 @@ bool Compiler::removeEmptyBasicBlocks(std::shared_ptr<ir::Function> f)
 	return ret;
 }
 
-bool Compiler::mergeBasicBlocks(std::shared_ptr<ir::Function> f)
+bool Compiler::mergeBasicBlocks(std::shared_ptr<Function> f)
 {
-	std::set<std::shared_ptr<ir::BasicBlock>> ok, notOk;
+	std::set<std::shared_ptr<BasicBlock>> ok, notOk;
 
-	auto consider = [&](std::shared_ptr<ir::BasicBlock> bb)
+	auto consider = [&](std::shared_ptr<BasicBlock> bb)
 	{
 		if(notOk.find(bb) == notOk.end())
 		{
@@ -70,26 +84,26 @@ bool Compiler::mergeBasicBlocks(std::shared_ptr<ir::Function> f)
 		}
 	};
 
-	f->traverse([&](std::shared_ptr<ir::BasicBlock> bb)
+	f->traverse([&](std::shared_ptr<BasicBlock> bb)
 	{
 		bb->termination->accept(overloaded
 		{
-			[&](const ir::Leave&){},
-			[&](const ir::Always &t) { consider(t.continuation); },
-			[&](const ir::Conditional& t) { consider(t.then); consider(t.otherwise); },
+			[&](const Leave&){},
+			[&](const Always &t) { consider(t.continuation); },
+			[&](const Conditional& t) { consider(t.then); consider(t.otherwise); },
 		});
 	});
 
 	if(!ok.empty())
 	{
 		bool ret = false;
-		f->traverse([&](std::shared_ptr<ir::BasicBlock> bb)
+		f->traverse([&](std::shared_ptr<BasicBlock> bb)
 		{
 			bb->termination->accept(overloaded
 			{
-				[&](const ir::Conditional&) {},
-				[&](const ir::Leave&) {},
-				[&](const ir::Always &t)
+				[&](const Conditional&) {},
+				[&](const Leave&) {},
+				[&](const Always &t)
 				{
 					if(ok.find(t.continuation) != ok.end())
 					{

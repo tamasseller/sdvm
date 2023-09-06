@@ -12,6 +12,7 @@
 #include <vector>
 #include <utility>
 #include <map>
+#include <functional>
 
 #include "assert.h"
 
@@ -23,6 +24,8 @@ struct BasicBlock
 	std::vector<std::shared_ptr<Operation>> code;
 	std::shared_ptr<Termination> termination;
 	std::vector<std::shared_ptr<Annotation>> annotations;
+
+	static void traverse(std::shared_ptr<BasicBlock> entry, std::function<void(std::shared_ptr<BasicBlock>)> c);
 
 	struct DumpContext
 	{

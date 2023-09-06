@@ -20,6 +20,7 @@ public:
 	{
 	    doJumpOptimizations = 0x00000001,
 	    propagateConstants  = 0x00000002,
+	    eliminateDeadCode   = 0x00000004,
 	};
 
 private:
@@ -28,6 +29,7 @@ private:
 	static bool removeEmptyBasicBlocks(std::shared_ptr<ir::Function> f);
 	static bool mergeBasicBlocks(std::shared_ptr<ir::Function> f);
 	static bool propagateConstants(std::shared_ptr<ir::Function> f);
+	static bool eliminateDeadCode(std::shared_ptr<ir::Function> f);
 
 public:
 	inline Compiler(std::shared_ptr<ast::Function> entryPoint):

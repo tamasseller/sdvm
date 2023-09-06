@@ -11,6 +11,7 @@
 
 #include "assert.h"
 
+#include <set>
 #include <sstream>
 #include <algorithm>
 
@@ -31,6 +32,35 @@ static inline const std::map<Binary::Op, std::string> binaryOp =
 		_ARITHMETIC_OPERATORS(X)
 #undef X
 };
+
+void BasicBlock::traverse(std::shared_ptr<BasicBlock> entry, std::function<void(std::shared_ptr<BasicBlock>)> c)
+{
+	std::set<std::shared_ptr<BasicBlock>> toDo{entry}, done;
+
+	while(!toDo.empty())
+	{
+		const auto current = *toDo.begin();
+		toDo.erase(current);
+		if(done.insert(current).second)
+		{
+			c(current);
+
+			current->termination->accept(overloaded
+			{
+				[&](const Leave &v){},
+				[&](const Always &v)
+				{
+					toDo.insert(v.continuation);
+				},
+				[&](const Conditional &v)
+				{
+					toDo.insert(v.then);
+					toDo.insert(v.otherwise);
+				},
+			});
+		}
+	}
+}
 
 std::string BasicBlock::DumpContext::nameOf(const std::shared_ptr<Temporary> &t)
 {

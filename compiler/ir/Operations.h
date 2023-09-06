@@ -24,7 +24,8 @@ struct Unary: OperationBase<Unary>
 		Neg, I2F, F2I, Not
 	};
 
-	const std::shared_ptr<Temporary> target, source;
+	const std::shared_ptr<Variable> target;
+	const std::shared_ptr<Temporary> source;
 	const Op op;
 
 	inline Unary(decltype(target) target, decltype(source) source, decltype(op) op):

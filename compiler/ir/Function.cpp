@@ -115,29 +115,5 @@ std::string ir::Function::dump(ast::ProgramObjectSet& gi) const
 
 void Function::traverse(std::function<void(std::shared_ptr<BasicBlock>)> c) const
 {
-	std::set<std::shared_ptr<BasicBlock>> toDo{entry}, done;
-
-	while(!toDo.empty())
-	{
-		const auto current = *toDo.begin();
-		toDo.erase(current);
-		if(done.insert(current).second)
-		{
-			c(current);
-
-			current->termination->accept(overloaded
-			{
-				[&](const Leave &v){},
-				[&](const Always &v)
-				{
-					toDo.insert(v.continuation);
-				},
-				[&](const Conditional &v)
-				{
-					toDo.insert(v.then);
-					toDo.insert(v.otherwise);
-				},
-			});
-		}
-	}
+	BasicBlock::traverse(entry, c);
 }

@@ -9,7 +9,8 @@
 TEST_GROUP(Tacify) {
 	static inline constexpr auto flags =
 			comp::Compiler::Options::doJumpOptimizations |
-			comp::Compiler::Options::propagateConstants;
+			comp::Compiler::Options::propagateConstants |
+			comp::Compiler::Options::eliminateDeadCode;
 };
 
 #if 0
