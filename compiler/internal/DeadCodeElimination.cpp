@@ -164,20 +164,26 @@ static inline bool removeUselessOpeations(const std::map<std::shared_ptr<BasicBl
 
 	f->traverse([&](std::shared_ptr<BasicBlock> bb)
 	{
-		LivenessAnalysis exit = calculateAtExitPoint(anal, bb->termination);
+		LivenessAnalysis state = calculateAtExitPoint(anal, bb->termination);
 
 		for(auto it = bb->code.rbegin(); it != bb->code.rend(); it++)
 		{
 			const std::shared_ptr<Operation>& o = *it;
 			const auto d = getDelta(o);
 
-			if(std::none_of(d.written.begin(), d.written.end(), [&](const auto &v){ return exit.isLive(v); }))
+			if(std::dynamic_pointer_cast<Create>(o) == nullptr &&
+				std::dynamic_pointer_cast<StoreField>(o) == nullptr &&
+				std::dynamic_pointer_cast<StoreGlobal>(o) == nullptr &&
+				std::dynamic_pointer_cast<Call>(o) == nullptr)
 			{
-				bb->code.erase(std::next(it).base());
-				ret = true;
+				if(std::none_of(d.written.begin(), d.written.end(), [&](const auto &v){ return state.isLive(v); }))
+				{
+					bb->code.erase(std::next(it).base());
+					ret = true;
+				}
 			}
 
-			exit.apply(d);
+			state.apply(d);
 		}
 	});
 

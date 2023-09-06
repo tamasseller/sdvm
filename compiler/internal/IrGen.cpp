@@ -72,38 +72,30 @@ struct Context: IrBuilder
 		return args[idx];
 	}
 
-	inline std::shared_ptr<Variable> operator()(std::shared_ptr<const ast::RValue> val)
+	inline std::shared_ptr<Variable> operator()(std::shared_ptr<const ast::RValue> val, std::shared_ptr<Variable> ret = {})
 	{
-		std::shared_ptr<Variable> ret;
+		if(!ret)
+		{
+			ret = std::make_shared<Variable>(val->getType());
+		}
 
 		val->accept(overloaded
 		{
 			[&](const ast::Local& v) { ret = getLocal(v.shared_from_this()); },
-			[&](const ast::Global& v) { ret = genOp(v.getType(), [&](auto t){ return std::make_shared<LoadGlobal>(t, v.field); }); },
+			[&](const ast::Global& v) { addOp(std::make_shared<LoadGlobal>(ret, v.field)); },
 			[&](const ast::Argument& v) { ret = arg(v.idx); },
-			[&](const ast::Create& v) { ret = genOp(v.getType(), [&](auto t){ return std::make_shared<Create>(t, v.type); }); },
-			[&](const ast::Literal& v) { ret = genLiteral(v.getType(), v.integer); },
-			[&](const ast::Dereference& v)
-			{
-				const auto in = (*this)(v.object);
-				ret = genOp(v.getType(), [&](auto t){ return std::make_shared<LoadField>(t, in, v.field); });
-			},
+			[&](const ast::Create& v) { addOp(std::make_shared<Create>(ret, v.type)); },
+			[&](const ast::Literal& v) { addOp(std::make_shared<Copy>(ret, std::make_shared<Constant>(v.getType(), v.integer))); },
+			[&](const ast::Dereference& v) { addOp(std::make_shared<LoadField>(ret, (*this)(v.object), v.field)); },
 			[&](const ast::Unary& v)
 			{
-				switch(v.op)
+				if(v.op == ast::Unary::Operation::Not)
 				{
-					case ast::Unary::Operation::Not:
-						ret = std::make_shared<Variable>(ast::ValueType::logical());
-						branch((*this)(v.arg),
-								[&](){ addLiteral(ret, 0); },
-								[&](){ addLiteral(ret, 1); });
-
-						break;
-					default:
-					{
-						const auto in = (*this)(v.arg);
-						ret = genOp(v.getType(), [&](auto t){ return std::make_shared<Unary>(t, in, mapUnaryOp(v.op)); });
-					}
+					branch((*this)(v.arg), [&](){ addLiteral(ret, 0); }, [&](){ addLiteral(ret, 1); });
+				}
+				else
+				{
+					addOp(std::make_shared<Unary>(ret, (*this)(v.arg), mapUnaryOp(v.op)));
 				}
 			},
 			[&](const ast::Binary& v)
@@ -124,49 +116,20 @@ struct Context: IrBuilder
 					case ast::Binary::Operation::GtF:
 					case ast::Binary::Operation::LeF:
 					case ast::Binary::Operation::GeF:
-						ret = condToBool(mapConditionalOp(v.op), (*this)(v.first), (*this)(v.second));
+						condToBool(ret, mapConditionalOp(v.op), (*this)(v.first), (*this)(v.second));
 						break;
 					case ast::Binary::Operation::And:
-					{
-						ret = std::make_shared<Variable>(ast::ValueType::logical());
-						branch((*this)(v.first),
-								[&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.second))); },
-								[&](){ addLiteral(ret, 0); });
-
+						branch((*this)(v.first), [&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.second))); }, [&](){ addLiteral(ret, 0); });
 						break;
-					}
 					case ast::Binary::Operation::Or:
-					{
-						ret = std::make_shared<Variable>(ast::ValueType::logical());
-						branch((*this)(v.first),
-								[&](){ addLiteral(ret, 1); },
-								[&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.second))); });
-
+						branch((*this)(v.first), [&](){ addLiteral(ret, 1); }, [&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.second))); });
 						break;
-					}
 					default:
-					{
-						const auto firstIn = (*this)(v.first);
-						const auto secondIn = (*this)(v.second);
-						ret = genOp(v.getType(), [&](auto t){ return std::make_shared<Binary>(t, firstIn, secondIn, mapBinaryOp(v.op)); });
-					}
+						addOp(std::make_shared<Binary>(ret, (*this)(v.first), (*this)(v.second), mapBinaryOp(v.op)));
 				}
 			},
-			[&](const ast::Set& v)
-			{
-				ret = (*this)(v.value);
-
-				v.target->accept(overloaded{
-					[&](const ast::Local& d){ addOp(std::make_shared<Copy>(getLocal(d.shared_from_this()), ret)); },
-					[&](const ast::Global& d){ addOp(std::make_shared<StoreGlobal>(ret, d.field)); },
-					[&](const ast::Argument& d){ addOp(std::make_shared<Copy>(arg(d.idx), ret)); },
-					[&](const ast::Dereference& d)
-					{
-						const auto object = (*this)(d.object);
-						addOp(std::make_shared<StoreField>(ret, object, d.field));
-					},
-					[&](const ast::RValue& o){}
-				});
+			[&](const ast::Ternary& v) {
+				branch((*this)(v.condition), [&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.then))); }, [&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.otherwise))); });
 			},
 			[&](const ast::Call& v)
 			{
@@ -174,22 +137,32 @@ struct Context: IrBuilder
 				std::transform(v.args.begin(), v.args.end(), std::back_inserter(args), [&](const auto& v){ return (*this)(v); });
 
 				std::vector<std::shared_ptr<Variable>> out;
-				std::transform(v.fn->ret.begin(), v.fn->ret.end(), std::back_inserter(out), [&](const auto& v){ return std::make_shared<Variable>(v); });
-
-				addOp(std::make_shared<Call>(args, out, v.fn));
-
 				if(!v.fn->ret.empty())
 				{
 					assert(v.fn->ret.size() == 1);
-					ret = out[0];
+					out.push_back(ret);
 				}
+
+				addOp(std::make_shared<Call>(args, out, v.fn));
 			},
-			[&](const ast::Ternary& v)
+			[&](const ast::Set& v)
 			{
-				ret = std::make_shared<Variable>(v.getType());
-				branch((*this)(v.condition),
-						[&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.then))); },
-						[&](){ addOp(std::make_shared<Copy>(ret, (*this)(v.otherwise))); });
+				v.target->accept(overloaded
+				{
+					[&](const ast::Local& d) { ret = (*this)(v.value, getLocal(d.shared_from_this())); },
+					[&](const ast::Argument& d){ ret = (*this)(v.value, arg(d.idx)); },
+					[&](const ast::Global& d) {
+						ret = (*this)(v.value);
+						addOp(std::make_shared<StoreGlobal>(ret, d.field));
+					},
+					[&](const ast::Dereference& d)
+					{
+						const auto object = (*this)(d.object);
+						ret = (*this)(v.value);
+						addOp(std::make_shared<StoreField>(ret, object, d.field));
+					},
+					[&](const ast::RValue& o){ assert(false); }
+				});
 			},
 		});
 

@@ -59,27 +59,11 @@ public:
 
 	void addLiteral(std::shared_ptr<Variable> target, int v)
 	{
-		last->code.push_back(std::make_shared<Copy>(target, std::make_shared<Constant>(target->type, v)));
+		addOp(std::make_shared<Copy>(target, std::make_shared<Constant>(target->type, v)));
 	}
 
-	template<class C>
-	auto genOp(ast::ValueType t, C&& c)
+	void condToBool(std::shared_ptr<Variable> ret, Conditional::Condition condition, std::shared_ptr<Temporary> first, std::shared_ptr<Temporary> second)
 	{
-		auto ret = std::make_shared<Variable>(t);
-		last->code.push_back(c(ret));
-		return ret;
-	}
-
-	auto genLiteral(ast::ValueType t, int v) {
-		return genOp(t, [&](const auto &r){
-			return std::make_shared<Copy>(r, std::make_shared<Constant>(t, v));
-		});
-	}
-
-	std::shared_ptr<Variable> condToBool(Conditional::Condition condition, std::shared_ptr<Temporary> first, std::shared_ptr<Temporary> second)
-	{
-		auto ret = std::make_shared<Variable>(ast::ValueType::logical());
-
 		auto ifThenPoint = cut();
 		addOp(std::make_shared<Copy>(ret, std::make_shared<Constant>(ast::ValueType::logical(), 1)));
 		auto thenElsePoint = cut();
@@ -89,8 +73,6 @@ public:
 		join(ifThenPoint.first, condition, first, second, ifThenPoint.second, thenElsePoint.second);
 		join(thenElsePoint.first, endifPoint.second);
 		join(endifPoint.first, endifPoint.second);
-
-		return ret;
 	}
 
 	template<class T, class O>

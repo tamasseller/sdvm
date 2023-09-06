@@ -6,15 +6,8 @@
 
 #include <iostream>
 
-TEST_GROUP(Tacify) {
-	static inline constexpr auto flags =
-			comp::Compiler::Options::doJumpOptimizations
-			| comp::Compiler::Options::propagateConstants
-			| comp::Compiler::Options::eliminateDeadCode
-			;
-};
+TEST_GROUP(Tacify) {};
 
-#if 0
 TEST(Tacify, Sanity)
 {
 	auto uut = comp::FunctionBuilder::make({comp::ast::ValueType::integer()}, {comp::ast::ValueType::integer()});
@@ -22,7 +15,7 @@ TEST(Tacify, Sanity)
 
 	std::cout << uut.build().dumpCfg() << std::endl;
 }
-
+#if 0
 TEST(Tacify, Lhs)
 {
 	auto uut = comp::FunctionBuilder::make({}, {});
@@ -34,7 +27,7 @@ TEST(Tacify, Lhs)
 	uut <<= i[f][f][f] = i[f][f];
 	uut <<= comp::ret();
 
-	std::cout << uut.build().dumpCfg() << std::endl;
+	std::cout << uut.build().dumpCfg(comp::Options::eliminateDeadCode) << std::endl;
 }
 
 TEST(Tacify, Ternary)
@@ -54,10 +47,9 @@ TEST(Tacify, Conditional)
 	uut <<= comp::ret(uut[0]);
 	uut <<= comp::endBlock();
 
-	std::cout << uut.build().dumpCfg(flags) << std::endl;
+	std::cout << uut.build().dumpCfg() << std::endl;
 }
-#endif
-#if 1
+
 TEST(Tacify, Loop)
 {
 	auto uut = comp::FunctionBuilder::make({comp::ast::ValueType::integer()}, {comp::ast::ValueType::integer()});
@@ -73,6 +65,6 @@ TEST(Tacify, Loop)
 	uut <<= comp::endBlock();
 	uut <<= comp::ret(r);
 
-	std::cout << uut.build().dumpCfg(flags) << std::endl;
+	std::cout << uut.build().dumpCfg() << std::endl;
 }
 #endif

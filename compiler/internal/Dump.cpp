@@ -34,7 +34,7 @@ std::string Compiler::dumpAst()
 	return join(parts);
 }
 
-std::string Compiler::dumpCfg(Compiler::Options opt)
+std::string Compiler::dumpCfg(Options opt)
 {
 	std::vector<std::string> parts;
 
